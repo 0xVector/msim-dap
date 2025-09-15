@@ -1,0 +1,11 @@
+[package]
+name = "adapter"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+dap = "0.4.1-alpha1"
+thiserror = "2.0.16" # dap needs
+gimli = "0.32.2"
+object = "0.37.3"
+memmap2 = "0.9.8"

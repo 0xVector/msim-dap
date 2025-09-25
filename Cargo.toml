@@ -8,4 +8,3 @@ dap = "0.4.1-alpha1"
 thiserror = "2.0.16" # dap needs
 gimli = "0.32.2"
 object = "0.37.3"
-memmap2 = "0.9.8"

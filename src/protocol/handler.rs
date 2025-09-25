@@ -8,7 +8,7 @@ pub trait Handles {
     fn attach(server: &mut DapServer, args: &AttachRequestArguments) -> ResponseBody;
 }
 
-pub struct Handler {}
+pub struct Handler;
 
 impl Handles for Handler {
     fn initialize(_server: &mut DapServer, args: &InitializeArguments) -> ResponseBody {

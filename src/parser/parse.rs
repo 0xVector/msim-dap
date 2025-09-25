@@ -1,14 +1,11 @@
 //! A simple example of parsing `.debug_line`.
 
-use crate::parser::parsed_data::{DwarfIndex, DwarfIndexBuilder};
+use crate::parser::index::{DwarfIndex, DwarfIndexBuilder};
 use object::{Object, ObjectSection};
 use std::path::Path;
 use std::{borrow, error, fs, path};
 
 pub fn parse_dwarf(path: &Path) -> DwarfIndex {
-    // for path in env::args().skip(1) {
-    // }
-
     let file = fs::read(path).unwrap();
     let object = object::File::parse(file.as_slice()).unwrap();
     let endian = if object.is_little_endian() {
@@ -17,7 +14,7 @@ pub fn parse_dwarf(path: &Path) -> DwarfIndex {
         gimli::RunTimeEndian::Big
     };
     let builder = parse_lines(&object, endian).unwrap();
-    
+
     builder.build()
 }
 
@@ -41,16 +38,16 @@ fn parse_lines(
 
     // Create `EndianSlice`s for all of the sections.
     let dwarf = dwarf_sections.borrow(borrow_section);
-    
+
     let mut builder = DwarfIndexBuilder::new();
 
     // Iterate over the compilation units.
     let mut iter = dwarf.units();
     while let Some(header) = iter.next()? {
-        println!(
-            "Line number info for unit at <.debug_info+0x{:x}>",
-            header.offset().as_debug_info_offset().unwrap().0
-        );
+        // println!(
+        //     "Line number info for unit at <.debug_info+0x{:x}>",
+        //     header.offset().as_debug_info_offset().unwrap().0
+        // );
         let unit = dwarf.unit(header)?;
         let unit = unit.unit_ref(&dwarf);
 
@@ -67,7 +64,7 @@ fn parse_lines(
             while let Some((header, row)) = rows.next_row()? {
                 if row.end_sequence() {
                     // End of sequence indicates a possible gap in addresses.
-                    println!("{:x} end-sequence", row.address());
+                    // println!("{:x} end-sequence", row.address());
                 } else {
                     // Determine the path. Real applications should cache this for performance.
                     let mut path = path::PathBuf::new();
@@ -99,7 +96,7 @@ fn parse_lines(
                         gimli::ColumnType::Column(column) => column.get(),
                     };
 
-                    println!("{:x} {}:{}:{}", row.address(), path.display(), line, column);
+                    // println!("{:x} {}:{}:{}", row.address(), path.display(), line, column);
                     builder.insert(row.address(), path, line);
                 }
             }
@@ -107,4 +104,3 @@ fn parse_lines(
     }
     Ok(builder)
 }
-

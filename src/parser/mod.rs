@@ -1,4 +1,5 @@
+mod index;
 mod parse;
-mod parsed_data;
 
+pub use crate::parser::index::DwarfIndex;
 pub use crate::parser::parse::parse_dwarf;

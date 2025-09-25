@@ -1,6 +1,7 @@
+use crate::parser::DwarfIndex;
 use crate::protocol::error::AdapterError::UnhandledCommandError;
 use crate::protocol::error::AdapterResult;
-use crate::protocol::handler::Handles;
+use crate::protocol::handler::{Handler, Handles};
 use dap::prelude::ResponseBody;
 use dap::requests::Command;
 use dap::server::Server;
@@ -18,10 +19,20 @@ pub fn create(address: &str) -> AdapterResult<DapServer> {
     Ok(Server::new(reader, writer))
 }
 
-pub fn serve<H: Handles>(server: &mut DapServer) -> AdapterResult<()> {
+pub fn serve<H: Handles>(server: &mut DapServer, index: DwarfIndex) -> AdapterResult<()> {
+    let mut handler = Handler::new(index);
+
     while let Some(req) = server.poll_request()? {
         let resp_body: ResponseBody = match &req.command {
-            Command::Initialize(args) => H::initialize(server, args),
+            Command::Initialize(args) => handler.initialize(server, args),
+            Command::Attach(args) => handler.attach(server, args),
+            Command::ConfigurationDone => handler.configuration_done(server),
+            Command::SetBreakpoints(args) => handler.set_breakpoints(server, args),
+            Command::SetExceptionBreakpoints(args) => {
+                handler.set_exception_breakpoints(server, args)
+            }
+            Command::Threads => handler.threads(server),
+            Command::Disconnect(args) => handler.disconnect(server, args),
             _ => return Err(UnhandledCommandError),
         };
 

@@ -1,9 +1,12 @@
 use std::path::Path;
 
-mod protocol;
 mod parser;
+mod protocol;
 
 fn main() {
+    println!("Parsing dwarf...");
     let index = parser::parse_dwarf(Path::new("kernel.raw"));
-    protocol::run().expect("Protocol error");
+    println!("Running...");
+    protocol::run(index).expect("Protocol error");
+    println!("Exiting...");
 }

@@ -1,6 +1,6 @@
-use crate::parser::DwarfIndex;
-use crate::protocol::protocol::DapServer;
-use crate::protocol::state::State;
+use crate::dwarf::DwarfIndex;
+use crate::dap::protocol::DapServer;
+use crate::dap::state::State;
 use dap::requests::{
     AttachRequestArguments, DisconnectArguments, InitializeArguments, SetBreakpointsArguments,
     SetExceptionBreakpointsArguments,
@@ -92,6 +92,7 @@ impl Handles for Handler {
                 path, bp.line, bp.column, address
             );
         }
+        println!();
 
         ResponseBody::SetBreakpoints(SetBreakpointsResponse {
             breakpoints: vec![],

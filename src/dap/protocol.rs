@@ -1,7 +1,7 @@
-use crate::parser::DwarfIndex;
-use crate::protocol::error::AdapterError::UnhandledCommandError;
-use crate::protocol::error::AdapterResult;
-use crate::protocol::handler::{Handler, Handles};
+use crate::dwarf::DwarfIndex;
+use crate::dap::error::AdapterError::UnhandledCommandError;
+use crate::dap::error::AdapterResult;
+use crate::dap::handler::{Handler, Handles};
 use dap::prelude::ResponseBody;
 use dap::requests::Command;
 use dap::server::Server;

@@ -1,6 +1,6 @@
 //! A simple example of parsing `.debug_line`.
 
-use crate::parser::index::{DwarfIndex, DwarfIndexBuilder};
+use crate::dwarf::index::{DwarfIndex, DwarfIndexBuilder};
 use object::{Object, ObjectSection};
 use std::path::Path;
 use std::{borrow, error, fs, path};

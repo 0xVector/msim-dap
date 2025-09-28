@@ -3,10 +3,10 @@ mod handler;
 mod protocol;
 mod state;
 
-use crate::parser::DwarfIndex;
-use crate::protocol::error::AdapterResult;
-use crate::protocol::handler::Handler;
-use crate::protocol::protocol::{create, serve};
+use crate::dwarf::DwarfIndex;
+use crate::dap::error::AdapterResult;
+use crate::dap::handler::Handler;
+use crate::dap::protocol::{create, serve};
 
 pub fn run(index: DwarfIndex) -> AdapterResult<()> {
     let mut server = create("127.0.0.1:15000")?;

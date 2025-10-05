@@ -1,18 +1,23 @@
 mod context;
-mod error;
 mod handler;
 mod server;
 mod state;
 
-use crate::dap::error::AdapterResult;
-use crate::dap::handler::Handler;
-use crate::dap::server::{serve, server_from_tcp};
-use crate::dwarf::DwarfIndex;
+pub use context::Context;
+pub use handler::{Handler, Handles};
+pub use server::{DapServer, serve, server_from_io, server_from_stdio, server_from_tcp};
+pub use state::State;
 
-pub fn run(index: DwarfIndex) -> AdapterResult<()> {
-    let handler = Handler {};
-    let mut server = server_from_tcp("127.0.0.1:15000")?;
+pub type Result<T> = std::result::Result<T, DapError>;
 
-    serve(handler, &mut server, &index)?;
-    Ok(())
+#[derive(thiserror::Error, Debug)]
+pub enum DapError {
+    #[error("Server error")]
+    ServerError(#[from] dap::errors::ServerError),
+
+    #[error("Unhandled command")]
+    UnhandledCommandError,
+
+    #[error("IO error")]
+    IoError(#[from] std::io::Error),
 }

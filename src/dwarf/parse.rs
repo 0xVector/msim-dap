@@ -1,34 +1,37 @@
-//! A simple example of parsing `.debug_line`.
-
 use crate::dwarf::index::{DwarfIndex, DwarfIndexBuilder};
+use crate::dwarf::{DwarfError, Result};
 use object::{Object, ObjectSection};
 use std::path::Path;
 use std::{borrow, error, fs, path};
 
-pub fn parse_dwarf(path: &Path) -> DwarfIndex {
-    let file = fs::read(path).unwrap();
-    let object = object::File::parse(file.as_slice()).unwrap();
+use std::result::Result as StdResult;
+
+pub fn parse_dwarf(path: &Path) -> Result<DwarfIndex> {
+    let file = fs::read(path)?;
+    let object = object::File::parse(file.as_slice())?;
     let endian = if object.is_little_endian() {
         gimli::RunTimeEndian::Little
     } else {
         gimli::RunTimeEndian::Big
     };
-    let builder = parse_lines(&object, endian).unwrap();
+    let builder =
+        parse_lines(&object, endian).map_err(|e| DwarfError::ParseError(e.to_string()))?;
 
-    builder.build()
+    Ok(builder.build())
 }
 
 fn parse_lines(
     object: &object::File,
     endian: gimli::RunTimeEndian,
-) -> Result<DwarfIndexBuilder, Box<dyn error::Error>> {
+) -> StdResult<DwarfIndexBuilder, Box<dyn error::Error>> {
     // Load a section and return as `Cow<[u8]>`.
-    let load_section = |id: gimli::SectionId| -> Result<borrow::Cow<[u8]>, Box<dyn error::Error>> {
-        Ok(match object.section_by_name(id.name()) {
-            Some(section) => section.uncompressed_data()?,
-            None => borrow::Cow::Borrowed(&[]),
-        })
-    };
+    let load_section =
+        |id: gimli::SectionId| -> StdResult<borrow::Cow<[u8]>, Box<dyn error::Error>> {
+            Ok(match object.section_by_name(id.name()) {
+                Some(section) => section.uncompressed_data()?,
+                None => borrow::Cow::Borrowed(&[]),
+            })
+        };
 
     // Borrow a `Cow<[u8]>` to create an `EndianSlice`.
     let borrow_section = |section| gimli::EndianSlice::new(borrow::Cow::as_ref(section), endian);
@@ -91,7 +94,7 @@ fn parse_lines(
                         Some(line) => line.get(),
                         None => 0,
                     };
-                    let column = match row.column() {
+                    let _column = match row.column() {
                         gimli::ColumnType::LeftEdge => 0,
                         gimli::ColumnType::Column(column) => column.get(),
                     };

@@ -1,6 +1,5 @@
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
-use std::rc::Rc;
 
 #[derive(Copy, Clone, Hash, Eq, PartialEq, Debug)]
 pub struct Address(u64);
@@ -62,9 +61,3 @@ impl DwarfIndex {
         )
     }
 }
-
-// pub struct LineEntry {
-//     pub file_path: String,
-//     pub line_num: u64,
-//     pub col_num: u64
-// }

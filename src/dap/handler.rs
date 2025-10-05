@@ -1,4 +1,4 @@
-pub(crate) use crate::dap::context::Context;
+use crate::dap::context::Context;
 use dap::requests::{
     AttachRequestArguments, DisconnectArguments, InitializeArguments, SetBreakpointsArguments,
     SetExceptionBreakpointsArguments,

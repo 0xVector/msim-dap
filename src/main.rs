@@ -1,5 +1,5 @@
 use clap::Parser;
-use adapter::{Config, Mode, Result};
+use msim_dap::{Config, Mode, Result};
 
 #[derive(Parser, Debug)]
 #[command(name = "adapter")]
@@ -44,7 +44,7 @@ fn main() -> Result<()>{
     if opts.verbose {println!("Using config:\n{:#?}", config)}
 
     println!("Running...");
-    // adapter::run(&config)?;
+    msim_dap::run(&config)?;
 
     println!("Exiting...");
     Ok(())

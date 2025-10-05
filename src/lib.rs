@@ -1,3 +1,4 @@
+//! MSIM DAP adapter
 use crate::dap::server_from_stdio;
 use crate::dwarf::parse_dwarf;
 use dap::{Handler, server_from_tcp, serve};
@@ -38,7 +39,7 @@ pub enum Mode {
 }
 
 /// Adapter config
-#[derive(Debug, )]
+#[derive(Debug)]
 pub struct Config<'a> {
     /// Mode to use for the DAP layer
     pub mode: Mode,

@@ -52,12 +52,18 @@ impl Handles for Handler {
         println!("Path: {:?}", path);
 
         let bps = args.breakpoints.as_deref().unwrap_or(&[]);
+
         for bp in bps {
             let address = ctx.index.get_address(Path::new(&path), bp.line as u64);
             println!(
                 "BP at {:?}:{}:{:?} -> [{:?}]",
                 path, bp.line, bp.column, address
             );
+            if let Some(a) = address {
+                ctx.commander
+                    .set_breakpoint(a as u32)
+                    .unwrap_or_else(|e| eprintln!("DAP breakpoint error: {}", e));
+            }
         }
         println!();
 

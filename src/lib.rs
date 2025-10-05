@@ -4,6 +4,7 @@ use crate::dwarf::parse_dwarf;
 use dap::{Handler, server_from_tcp, serve};
 use std::path::Path;
 use thiserror::Error;
+use crate::msim::Commander;
 
 mod dap;
 mod dwarf;
@@ -56,13 +57,18 @@ pub fn run(config: &Config) -> Result<()> {
     println!("Parsing dwarf...");
     let index = parse_dwarf(config.kernel_path)?;
 
-    let handler = Handler {};
-
+    println!("Starting up DAP server...");
     let mut server = match config.mode {
         Mode::Stdio => server_from_stdio(),
         Mode::TCP(_) => server_from_tcp("127.0.0.1:15000"),
     }?;
 
-    serve(handler, &mut server, &index)?;
+    println!("Connecting to MSIM...");
+    let mut commander = Commander::new(config.msim_port)?;
+
+    let mut handler = Handler {};
+    
+    println!("Ready!");
+    serve(&mut handler, &mut server, &mut commander, &index)?;
     Ok(())
 }

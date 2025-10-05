@@ -3,6 +3,7 @@ use super::handler::Handles;
 use super::state::State;
 use super::{DapError, Result};
 use crate::dwarf::DwarfIndex;
+use crate::msim::Commands;
 
 use dap::prelude::ResponseBody;
 use dap::requests::Command;
@@ -33,11 +34,16 @@ pub fn server_from_tcp(address: impl ToSocketAddrs) -> Result<DapServer> {
     server_from_io(stream.try_clone()?, stream)
 }
 
-pub fn serve(mut handler: impl Handles, server: &mut DapServer, index: &DwarfIndex) -> Result<()> {
+pub fn serve(
+    handler: &mut impl Handles,
+    server: &mut DapServer,
+    commander: &mut impl Commands,
+    index: &DwarfIndex,
+) -> Result<()> {
     let mut state = State::New;
 
     while let Some(req) = server.poll_request()? {
-        let ctx = Context::new(&mut state, server, index);
+        let ctx = Context::new(&mut state, server, commander, index);
 
         let resp_body: ResponseBody = match &req.command {
             Command::Initialize(args) => handler.initialize(ctx, args),

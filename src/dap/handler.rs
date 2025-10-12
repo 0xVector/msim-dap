@@ -48,7 +48,7 @@ impl Handles for Handler {
     }
 
     fn set_breakpoints(&mut self, ctx: Context, args: &SetBreakpointsArguments) -> ResponseBody {
-        let path = args.source.path.as_deref().unwrap_or("NO-PATH");
+        let path = args.source.path.as_deref().unwrap_or("NO-PATH"); // TODO: some better default handling
         println!("Path: {:?}", path);
 
         let bps = args.breakpoints.as_deref().unwrap_or(&[]);

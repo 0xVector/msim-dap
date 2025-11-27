@@ -28,7 +28,7 @@ pub struct Handler;
 impl Handles for Handler {
     fn initialize(&mut self, _ctx: Context, args: &InitializeArguments) -> ResponseBody {
         if let Some(name) = &args.client_name {
-            println!("New client: {}, {}", name, args.adapter_id);
+            eprintln!("New client: {}, {}", name, args.adapter_id);
         }
 
         ResponseBody::Initialize(Capabilities {
@@ -37,7 +37,7 @@ impl Handles for Handler {
     }
 
     fn attach(&mut self, ctx: Context, _args: &AttachRequestArguments) -> ResponseBody {
-        println!("Attach request");
+        eprintln!("Attach request");
         ctx.server
             .send_event(dap::events::Event::Initialized)
             .expect("Server error");
@@ -49,13 +49,13 @@ impl Handles for Handler {
 
     fn set_breakpoints(&mut self, ctx: Context, args: &SetBreakpointsArguments) -> ResponseBody {
         let path = args.source.path.as_deref().unwrap_or("NO-PATH"); // TODO: some better default handling
-        println!("Path: {:?}", path);
+        eprintln!("Path: {:?}", path);
 
         let bps = args.breakpoints.as_deref().unwrap_or(&[]);
 
         for bp in bps {
             let address = ctx.index.get_address(Path::new(&path), bp.line as u64);
-            println!(
+            eprintln!(
                 "BP at {:?}:{}:{:?} -> [{:#x}]",
                 path, bp.line, bp.column, address.unwrap_or(0)
             );
@@ -65,7 +65,7 @@ impl Handles for Handler {
                     .unwrap_or_else(|e| eprintln!("DAP breakpoint error: {}", e));
             }
         }
-        println!();
+        eprintln!();
 
         ResponseBody::SetBreakpoints(SetBreakpointsResponse {
             breakpoints: vec![],

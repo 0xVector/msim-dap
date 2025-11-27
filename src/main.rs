@@ -41,11 +41,11 @@ fn main() -> Result<()>{
         kernel_path: opts.kernel_raw_path.as_ref(),
     };
 
-    if opts.verbose {println!("Using config:\n{:#?}", config)}
+    if opts.verbose {eprintln!("Using config:\n{:#?}", config)}
 
-    println!("Running...");
+    eprintln!("Running...");
     msim_dap::run(&config)?;
 
-    println!("Exiting...");
+    eprintln!("Exiting...");
     Ok(())
 }

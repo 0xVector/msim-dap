@@ -54,24 +54,24 @@ pub struct Config<'a> {
 
 /// Run with config
 pub fn run(config: &Config) -> Result<()> {
-    println!("Parsing dwarf...");
+    eprintln!("Parsing dwarf...");
     let index = parse_dwarf(config.kernel_path)?;
 
-    println!("Starting up DAP server...");
+    eprintln!("Starting up DAP server...");
     let mut server = match config.mode {
         Mode::Stdio => server_from_stdio(),
         Mode::TCP(port) => {
             let address = format!("127.0.0.1:{}", port);
-            println!("Waiting for DAP connection on {}", address);
+            eprintln!("Waiting for DAP connection on {}", address);
             server_from_tcp(address)},
     }?;
 
-    println!("Connecting to MSIM...");
+    eprintln!("Connecting to MSIM...");
     let mut commander = Commander::new(config.msim_port)?;
 
     let mut handler = Handler {};
     
-    println!("Ready!");
+    eprintln!("Ready!");
     serve(&mut handler, &mut server, &mut commander, &index)?;
     Ok(())
 }

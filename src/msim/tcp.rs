@@ -8,6 +8,6 @@ pub fn connect(port: u16) -> Result<TcpStream> {
     s.set_nodelay(true)?;
     s.set_read_timeout(Some(Duration::from_secs(5)))?;
     s.set_write_timeout(Some(Duration::from_secs(5)))?;
-    println!("Connected to MSIM with port {}", port);
+    eprintln!("Connected to MSIM with port {}", port);
     Ok(s)
 }

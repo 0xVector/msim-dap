@@ -56,8 +56,8 @@ impl Handles for Handler {
         for bp in bps {
             let address = ctx.index.get_address(Path::new(&path), bp.line as u64);
             println!(
-                "BP at {:?}:{}:{:?} -> [{:?}]",
-                path, bp.line, bp.column, address
+                "BP at {:?}:{}:{:?} -> [{:#x}]",
+                path, bp.line, bp.column, address.unwrap_or(0)
             );
             if let Some(a) = address {
                 ctx.commander

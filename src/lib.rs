@@ -60,7 +60,10 @@ pub fn run(config: &Config) -> Result<()> {
     println!("Starting up DAP server...");
     let mut server = match config.mode {
         Mode::Stdio => server_from_stdio(),
-        Mode::TCP(_) => server_from_tcp("127.0.0.1:15000"),
+        Mode::TCP(port) => {
+            let address = format!("127.0.0.1:{}", port);
+            println!("Waiting for DAP connection on {}", address);
+            server_from_tcp(address)},
     }?;
 
     println!("Connecting to MSIM...");

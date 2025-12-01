@@ -3,13 +3,13 @@ use super::handler::Handles;
 use super::state::State;
 use super::{DapError, Result};
 use crate::dwarf::DwarfIndex;
-use crate::msim::Commands;
 
 use dap::prelude::ResponseBody;
 use dap::requests::Command;
 use dap::server::Server;
 use std::io::{BufReader, BufWriter, Read, Write, stdin, stdout};
 use std::net::{TcpListener, ToSocketAddrs};
+use crate::msim;
 
 pub type DapServer = Server<Box<dyn Read>, Box<dyn Write>>;
 
@@ -37,13 +37,13 @@ pub fn server_from_tcp(address: impl ToSocketAddrs) -> Result<DapServer> {
 pub fn serve(
     handler: &mut impl Handles,
     server: &mut DapServer,
-    commander: &mut impl Commands,
+    connection: &mut impl msim::MsimConnection,
     index: &DwarfIndex,
 ) -> Result<()> {
     let mut state = State::New;
 
     while let Some(req) = server.poll_request()? {
-        let ctx = Context::new(&mut state, server, commander, index);
+        let ctx = Context::new(&mut state, server, connection, index);
 
         let resp_body: ResponseBody = match &req.command {
             Command::Initialize(args) => handler.initialize(ctx, args),

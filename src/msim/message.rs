@@ -7,6 +7,7 @@ use std::io::{self, Read, Write, read_to_string};
 pub enum MessageType {
     NoOp = 0,
     Breakpoint = 1,
+    StoppedAt = 2,
 }
 
 #[derive(Debug)]
@@ -32,9 +33,7 @@ impl Message {
         let msg_type = match header[0] {
             0 => MessageType::NoOp,
             1 => MessageType::Breakpoint,
-            _ => {
-                return Err(io::Error::new(io::ErrorKind::InvalidData, "bad message type").into());
-            }
+            _ => return Err(io::Error::new(io::ErrorKind::InvalidData, "bad message type").into()),
         };
 
         Ok(Message { msg_type, address })

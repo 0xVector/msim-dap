@@ -1,4 +1,5 @@
 use crate::dap::context::Context;
+use crate::msim::{MsimCommand, MsimResponse};
 use dap::requests::{
     AttachRequestArguments, DisconnectArguments, InitializeArguments, SetBreakpointsArguments,
     SetExceptionBreakpointsArguments,
@@ -6,7 +7,7 @@ use dap::requests::{
 use dap::responses::{
     ResponseBody, SetBreakpointsResponse, SetExceptionBreakpointsResponse, ThreadsResponse,
 };
-use dap::types::Capabilities;
+use dap::types::{Breakpoint, Capabilities};
 use std::path::Path;
 
 pub trait Handles {
@@ -53,22 +54,46 @@ impl Handles for Handler {
 
         let bps = args.breakpoints.as_deref().unwrap_or(&[]);
 
+        let mut set_bps = Vec::new();
+
         for bp in bps {
             let address = ctx.index.get_address(Path::new(&path), bp.line as u64);
-            eprintln!(
+            eprint!(
                 "BP at {:?}:{}:{:?} -> [{:#x}]",
-                path, bp.line, bp.column, address.unwrap_or(0)
+                path,
+                bp.line,
+                bp.column,
+                address.unwrap_or(0)
             );
             if let Some(a) = address {
-                ctx.commander
-                    .set_breakpoint(a as u32)
-                    .unwrap_or_else(|e| eprintln!("DAP breakpoint error: {}", e));
+                let resp = ctx
+                    .connection
+                    .send_command(MsimCommand::SetBreakpoint(a as u32));
+
+                match resp {
+                    Ok(MsimResponse::Ok) => {
+                        set_bps.push(Breakpoint {
+                            id: None,
+                            verified: true,
+                            message: None,
+                            source: None,
+                            line: Some(bp.line),
+                            column: bp.column,
+                            end_line: None,
+                            end_column: None,
+                            instruction_reference: None,
+                            offset: None,
+                        });
+                        eprintln!(" set")
+                    }
+                    _ => eprintln!(" NOT set"),
+                }
             }
         }
         eprintln!();
 
         ResponseBody::SetBreakpoints(SetBreakpointsResponse {
-            breakpoints: vec![],
+            breakpoints: set_bps,
         })
     }
 

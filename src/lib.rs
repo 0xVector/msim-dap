@@ -1,10 +1,10 @@
 //! MSIM DAP adapter
 use crate::dap::server_from_stdio;
 use crate::dwarf::parse_dwarf;
-use dap::{Handler, server_from_tcp, serve};
+use crate::msim::TcpMsimConnection;
+use dap::{Handler, serve, server_from_tcp};
 use std::path::Path;
 use thiserror::Error;
-use crate::msim::Commander;
 
 mod dap;
 mod dwarf;
@@ -63,15 +63,16 @@ pub fn run(config: &Config) -> Result<()> {
         Mode::TCP(port) => {
             let address = format!("127.0.0.1:{}", port);
             eprintln!("Waiting for DAP connection on {}", address);
-            server_from_tcp(address)},
+            server_from_tcp(address)
+        }
     }?;
 
     eprintln!("Connecting to MSIM...");
-    let mut commander = Commander::new(config.msim_port)?;
+    let mut msim_connection = TcpMsimConnection::new(config.msim_port)?;
 
     let mut handler = Handler {};
-    
+
     eprintln!("Ready!");
-    serve(&mut handler, &mut server, &mut commander, &index)?;
+    serve(&mut handler, &mut server, &mut msim_connection, &index)?;
     Ok(())
 }

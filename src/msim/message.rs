@@ -1,9 +1,9 @@
-use super::{MSIMError, Result};
+use super::Result;
 use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
-use std::io::{self, Read, Write, read_to_string};
+use std::io::{self, Read, Write};
 
 #[repr(u8)]
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum MessageType {
     NoOp = 0,
     Breakpoint = 1,
@@ -25,14 +25,13 @@ impl Message {
     }
 
     pub fn read(reader: &mut impl Read) -> Result<Self> {
-        let mut header = [0u8; 2];
-
-        reader.read_exact(&mut header)?;
+        let msg_type = reader.read_u8()?;
         let address = reader.read_u32::<BigEndian>()?;
 
-        let msg_type = match header[0] {
+        let msg_type = match msg_type {
             0 => MessageType::NoOp,
             1 => MessageType::Breakpoint,
+            2 => MessageType::StoppedAt,
             _ => return Err(io::Error::new(io::ErrorKind::InvalidData, "bad message type").into()),
         };
 

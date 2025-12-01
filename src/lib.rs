@@ -70,7 +70,7 @@ pub fn run(config: &Config) -> Result<()> {
     eprintln!("Connecting to MSIM...");
     let mut msim_connection = TcpMsimConnection::new(config.msim_port)?;
 
-    let mut handler = Handler {};
+    let mut handler = Handler;
 
     eprintln!("Ready!");
     serve(&mut handler, &mut server, &mut msim_connection, &index)?;

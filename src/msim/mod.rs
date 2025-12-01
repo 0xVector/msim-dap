@@ -6,7 +6,7 @@ mod tcp;
 #[cfg(test)]
 mod tests;
 
-pub use commands::{MsimCommand, MsimResponse};
+pub use commands::{MsimRequest, MsimResponse};
 pub use connection::{MsimConnection, TcpMsimConnection};
 
 pub type Result<T> = std::result::Result<T, MSIMError>;

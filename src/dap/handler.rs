@@ -1,5 +1,5 @@
 use crate::dap::context::Context;
-use crate::msim::{MsimCommand, MsimResponse};
+use crate::msim::{MsimRequest, MsimResponse};
 use dap::requests::{
     AttachRequestArguments, DisconnectArguments, InitializeArguments, SetBreakpointsArguments,
     SetExceptionBreakpointsArguments,
@@ -68,7 +68,7 @@ impl Handles for Handler {
             if let Some(a) = address {
                 let resp = ctx
                     .connection
-                    .send_command(MsimCommand::SetBreakpoint(a as u32));
+                    .send_command(MsimRequest::SetBreakpoint(a as u32));
 
                 match resp {
                     Ok(MsimResponse::Ok) => {

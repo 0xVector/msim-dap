@@ -1,11 +1,11 @@
 use super::Result;
-use crate::msim::commands::{MsimCommand, MsimResponse};
-use crate::msim::message::{Message, MessageType};
+use crate::msim::commands::{MsimRequest, MsimResponse};
+use crate::msim::message::{RequestMessage, RequestType, ResponseMessage};
 use crate::msim::tcp::connect;
 use std::net::TcpStream;
 
 pub trait MsimConnection {
-    fn send_command(&mut self, command: MsimCommand) -> Result<MsimResponse>;
+    fn send_command(&mut self, command: MsimRequest) -> Result<MsimResponse>;
 }
 
 pub struct TcpMsimConnection {
@@ -21,20 +21,19 @@ impl TcpMsimConnection {
 }
 
 impl MsimConnection for TcpMsimConnection {
-
-    fn send_command(&mut self, command: MsimCommand) -> Result<MsimResponse> {
+    fn send_command(&mut self, command: MsimRequest) -> Result<MsimResponse> {
         let address = match command {
-            MsimCommand::SetBreakpoint(address) => address,
-            _ => 0
+            MsimRequest::SetBreakpoint(address) => address,
+            _ => 0,
         };
 
-        let message = Message {
-            msg_type: MessageType::Breakpoint,
-            address
+        let message = RequestMessage {
+            msg_type: RequestType::SetBreakpoint,
+            address,
         };
 
         message.write(&mut self.stream)?;
 
-        Ok(Message::read(&mut self.stream)?.try_into()?)
+        Ok(ResponseMessage::read(&mut self.stream)?.into())
     }
 }

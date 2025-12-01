@@ -1,30 +1,23 @@
-use super::Result;
-use crate::msim::MSIMError;
-use crate::msim::commands::MsimCommand::SetBreakpoint;
-use crate::msim::commands::{MsimCommand, MsimResponse};
-use crate::msim::message::{Message, MessageType};
-use std::io::ErrorKind;
+use crate::msim::commands::MsimRequest::SetBreakpoint;
+use crate::msim::commands::{MsimRequest, MsimResponse};
+use crate::msim::message::{RequestMessage, RequestType, ResponseMessage, ResponseType};
 
-impl From<MsimCommand> for Message {
-    fn from(command: MsimCommand) -> Self {
+impl From<MsimRequest> for RequestMessage {
+    fn from(command: MsimRequest) -> Self {
         match command {
-            SetBreakpoint(address) => Message {
-                msg_type: MessageType::Breakpoint,
+            SetBreakpoint(address) => RequestMessage {
+                msg_type: RequestType::SetBreakpoint,
                 address,
             },
         }
     }
 }
 
-impl TryFrom<Message> for MsimResponse {
-    type Error = MSIMError;
-
-    fn try_from(message: Message) -> Result<Self> {
+impl From<ResponseMessage> for MsimResponse {
+    fn from(message: ResponseMessage) -> Self {
         match message.msg_type {
-            MessageType::NoOp | MessageType::Breakpoint => {
-                Err(std::io::Error::new(ErrorKind::InvalidData, "bad message type").into())
-            }
-            MessageType::StoppedAt => Ok(MsimResponse::Stopped(message.address))
+            ResponseType::Ok => MsimResponse::Ok,
+            ResponseType::StoppedAt => MsimResponse::Stopped(message.address),
         }
     }
 }

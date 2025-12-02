@@ -4,12 +4,12 @@ use msim_dap::{Config, Mode, Result};
 #[derive(Parser, Debug)]
 #[command(name = "adapter")]
 struct Opts {
-    /// Use the DAP side in TCP mode (default is stdio), with optional port number to use \[default: 15000]
-    #[arg(short = 'd', long, num_args(0..=1), default_missing_value = "15000", value_name = "PORT")]
+    /// Use the DAP side in TCP mode (default is stdio), with optional port number to use \[default: 10506]
+    #[arg(short = 'd', long, num_args(0..=1), default_missing_value = "10506", value_name = "PORT")]
     dap_tcp_mode: Option<u16>,
 
     /// Port to use for MSIM connection
-    #[arg(short = 'm', long, num_args(0..=1), default_value_t = 5000, value_name = "PORT")]
+    #[arg(short = 'm', long, num_args(0..=1), default_value_t = 10505, value_name = "PORT")]
     msim_port: u16,
 
     /// kernel.raw path to use

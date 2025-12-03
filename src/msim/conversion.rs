@@ -1,15 +1,19 @@
-use crate::msim::commands::MsimRequest::SetBreakpoint;
 use crate::msim::commands::{MsimRequest, MsimResponse};
 use crate::msim::message::{RequestMessage, RequestType, ResponseMessage, ResponseType};
 
 impl From<MsimRequest> for RequestMessage {
     fn from(command: MsimRequest) -> Self {
-        match command {
-            SetBreakpoint(address) => RequestMessage {
-                msg_type: RequestType::SetBreakpoint,
-                address,
-            },
-        }
+        let msg_type = match command {
+            MsimRequest::SetBreakpoint(_) => RequestType::SetBreakpoint,
+            MsimRequest::Continue => RequestType::Continue,
+        };
+
+        let address = match command {
+            MsimRequest::SetBreakpoint(address) => address,
+            MsimRequest::Continue => Default::default(),
+        };
+
+        RequestMessage { msg_type, address }
     }
 }
 

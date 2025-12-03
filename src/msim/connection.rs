@@ -1,11 +1,12 @@
 use super::Result;
 use crate::msim::commands::{MsimRequest, MsimResponse};
-use crate::msim::message::{RequestMessage, RequestType, ResponseMessage};
+use crate::msim::message::RequestMessage;
 use crate::msim::tcp::connect;
+use std::io::ErrorKind;
 use std::net::TcpStream;
 
 pub trait MsimConnection {
-    fn send_command(&mut self, command: MsimRequest) -> Result<MsimResponse>;
+    fn send(&mut self, command: MsimRequest) -> Result<MsimResponse>;
 }
 
 pub struct TcpMsimConnection {
@@ -21,19 +22,15 @@ impl TcpMsimConnection {
 }
 
 impl MsimConnection for TcpMsimConnection {
-    fn send_command(&mut self, command: MsimRequest) -> Result<MsimResponse> {
-        let address = match command {
-            MsimRequest::SetBreakpoint(address) => address,
-            _ => 0,
-        };
-
-        let message = RequestMessage {
-            msg_type: RequestType::SetBreakpoint,
-            address,
-        };
-
+    fn send(&mut self, request: MsimRequest) -> Result<MsimResponse> {
+        let message: RequestMessage = request.into();
         message.write(&mut self.stream)?;
 
-        Ok(ResponseMessage::read(&mut self.stream)?.into())
+        // TODO: add support in MSIM and remove this
+        Err(
+            std::io::Error::new(ErrorKind::Unsupported, "Response not yet supported in MSIM")
+                .into(),
+        )
+        // Ok(ResponseMessage::read(&mut self.stream)?.into())
     }
 }

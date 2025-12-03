@@ -4,8 +4,9 @@ use std::io::{self, Read, Write};
 
 /// Types of requests that can be sent to MSIM.
 #[repr(u8)]
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Default)]
 pub enum RequestType {
+    #[default]
     NoOp = 0,
     SetBreakpoint = 1,
     Continue = 2,
@@ -22,7 +23,7 @@ pub enum ResponseType {
 /// On the wire message format for requests to MSIM.
 /// Consists of a message type and an address.
 /// The address is only meaningful for certain message types.
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct RequestMessage {
     pub msg_type: RequestType,
     pub address: u32,

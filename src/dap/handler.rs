@@ -33,6 +33,7 @@ impl Handles for Handler {
         }
 
         ResponseBody::Initialize(Capabilities {
+            supports_configuration_done_request: Some(true),
             ..Default::default() // No extra capabilities advertised
         })
     }
@@ -40,11 +41,13 @@ impl Handles for Handler {
     fn attach(&mut self, ctx: Context, _args: &AttachRequestArguments) -> ResponseBody {
         eprintln!("Attach request");
         ctx.server
-            .send_event(dap::events::Event::Initialized)
+            .send_event(dap::events::Event::Initialized) // TODO: move to initialize to be spec-consistent
             .expect("Server error");
         ResponseBody::Attach
     }
-    fn configuration_done(&mut self, _ctx: Context) -> ResponseBody {
+
+    fn configuration_done(&mut self, ctx: Context) -> ResponseBody {
+        ctx.connection.send(MsimRequest::Continue).ok(); // TODO: handle failure
         ResponseBody::ConfigurationDone
     }
 
@@ -66,9 +69,7 @@ impl Handles for Handler {
                 address.unwrap_or(0)
             );
             if let Some(a) = address {
-                let resp = ctx
-                    .connection
-                    .send_command(MsimRequest::SetBreakpoint(a as u32));
+                let resp = ctx.connection.send(MsimRequest::SetBreakpoint(a as u32));
 
                 match resp {
                     Ok(MsimResponse::Ok) => {

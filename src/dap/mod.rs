@@ -3,10 +3,8 @@ mod handler;
 mod server;
 mod state;
 
-pub use context::Context;
-pub use handler::{Handler, Handles};
-pub use server::{DapServer, serve, server_from_io, server_from_stdio, server_from_tcp};
-pub use state::State;
+pub use handler::Handler;
+pub use server::{serve, server_from_stdio, server_from_tcp};
 
 pub type Result<T> = std::result::Result<T, DapError>;
 
@@ -16,7 +14,7 @@ pub enum DapError {
     ServerError(#[from] dap::errors::ServerError),
 
     #[error("Unhandled command")]
-    UnhandledCommandError,
+    UnhandledCommandError(String),
 
     #[error("IO error")]
     IoError(#[from] std::io::Error),

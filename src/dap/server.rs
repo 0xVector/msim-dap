@@ -54,7 +54,11 @@ pub fn serve(
             Command::SetExceptionBreakpoints(args) => handler.set_exception_breakpoints(ctx, args),
             Command::Threads => handler.threads(ctx),
             Command::Disconnect(args) => handler.disconnect(ctx, args),
-            _ => return Err(DapError::UnhandledCommandError),
+            _ => {
+                return Err(DapError::UnhandledCommandError(
+                    format!("command: {:?}", req.command).into(),
+                ));
+            }
         };
 
         let resp = req.success(resp_body);

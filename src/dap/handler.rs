@@ -1,9 +1,6 @@
 use crate::dap::context::Context;
 use crate::msim::{MsimRequest, MsimResponse};
-use dap::requests::{
-    AttachRequestArguments, DisconnectArguments, InitializeArguments, SetBreakpointsArguments,
-    SetExceptionBreakpointsArguments,
-};
+use dap::requests::{AttachRequestArguments, DisconnectArguments, InitializeArguments, LaunchRequestArguments, SetBreakpointsArguments, SetExceptionBreakpointsArguments};
 use dap::responses::{
     ResponseBody, SetBreakpointsResponse, SetExceptionBreakpointsResponse, ThreadsResponse,
 };
@@ -13,6 +10,7 @@ use std::path::Path;
 pub trait Handles {
     fn initialize(&mut self, ctx: Context, args: &InitializeArguments) -> ResponseBody;
     fn attach(&mut self, ctx: Context, args: &AttachRequestArguments) -> ResponseBody;
+    fn launch(&mut self, ctx: Context, args: &LaunchRequestArguments) -> ResponseBody;
     fn configuration_done(&mut self, ctx: Context) -> ResponseBody;
     fn set_breakpoints(&mut self, ctx: Context, args: &SetBreakpointsArguments) -> ResponseBody;
     fn set_exception_breakpoints(
@@ -43,7 +41,16 @@ impl Handles for Handler {
         ctx.server
             .send_event(dap::events::Event::Initialized) // TODO: move to initialize to be spec-consistent
             .expect("Server error");
+
         ResponseBody::Attach
+    }
+
+    fn launch(&mut self, ctx: Context, _args: &LaunchRequestArguments) -> ResponseBody {
+        eprintln!("Launch request");
+        ctx.server
+            .send_event(dap::events::Event::Initialized)
+            .expect("Server error");
+        ResponseBody::Launch
     }
 
     fn configuration_done(&mut self, ctx: Context) -> ResponseBody {

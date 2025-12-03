@@ -4,12 +4,12 @@ use super::state::State;
 use super::{DapError, Result};
 use crate::dwarf::DwarfIndex;
 
+use crate::msim;
 use dap::prelude::ResponseBody;
 use dap::requests::Command;
 use dap::server::Server;
 use std::io::{BufReader, BufWriter, Read, Write, stdin, stdout};
 use std::net::{TcpListener, ToSocketAddrs};
-use crate::msim;
 
 pub type DapServer = Server<Box<dyn Read>, Box<dyn Write>>;
 
@@ -48,6 +48,7 @@ pub fn serve(
         let resp_body: ResponseBody = match &req.command {
             Command::Initialize(args) => handler.initialize(ctx, args),
             Command::Attach(args) => handler.attach(ctx, args),
+            Command::Launch(args) => handler.launch(ctx, args),
             Command::ConfigurationDone => handler.configuration_done(ctx),
             Command::SetBreakpoints(args) => handler.set_breakpoints(ctx, args),
             Command::SetExceptionBreakpoints(args) => handler.set_exception_breakpoints(ctx, args),

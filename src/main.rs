@@ -1,5 +1,8 @@
 use clap::Parser;
 use msim_dap::{Config, Mode, Result};
+use std::env;
+use std::fs::OpenOptions;
+use std::os::fd::AsRawFd;
 
 #[derive(Parser, Debug)]
 #[command(name = "adapter")]
@@ -24,11 +27,32 @@ struct Opts {
 
     /// Use verbose output
     #[arg(short, long)]
-    verbose: bool
+    verbose: bool,
+
+    /// Log to file instead of stderr (/tmp/msim-dap.log)
+    #[arg(short, long)]
+    log: bool,
 }
 
-fn main() -> Result<()>{
+fn redirect_stderr() {
+    let file = OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open("/tmp/msim-dap.log")
+        .expect("open log");
+
+    unsafe {
+        libc::dup2(file.as_raw_fd(), libc::STDERR_FILENO);
+    }
+}
+
+fn main() -> Result<()> {
     let opts = Opts::parse();
+
+    if opts.log {redirect_stderr();}
+
+    let cwd = env::current_dir().unwrap();
+    eprintln!("Starting adapter in dir {:?}", cwd);
 
     let mode = match opts.dap_tcp_mode {
         Some(v) => Mode::TCP(v),
@@ -41,7 +65,9 @@ fn main() -> Result<()>{
         kernel_path: opts.kernel_raw_path.as_ref(),
     };
 
-    if opts.verbose {eprintln!("Using config:\n{:#?}", config)}
+    if opts.verbose {
+        eprintln!("Using config:\n{:#?}", config)
+    }
 
     eprintln!("Running...");
     msim_dap::run(&config)?;

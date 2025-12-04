@@ -1,0 +1,97 @@
+name: Build & release msim-dap (Linux amd64 + macOS arm64)
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Release tag (e.g. v0.1.0). Leave empty for a rolling "latest" release.'
+        required: false
+        default: ""
+
+jobs:
+  build-linux-x64:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Rust (stable)
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Build adapter (Linux amd64)
+        run: cargo build --release --bin msim-dap
+
+      - name: Prepare Linux artifact
+        run: cp target/release/msim-dap msim-dap-linux-x64
+      - name: Upload Linux binary as artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: msim-dap-linux-x64
+          path: msim-dap-linux-x64
+
+  build-darwin-arm64:
+    runs-on: macos-14
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Rust (stable)
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Build adapter (macOS arm64)
+        run: cargo build --release --bin msim-dap
+
+      - name: Prepare macOS artifact
+        run: cp target/release/msim-dap msim-dap-darwin-arm64
+      - name: Upload macOS binary as artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: msim-dap-darwin-arm64
+          path: msim-dap-darwin-arm64
+
+  publish-release:
+    needs: [ build-linux-x64, build-darwin-arm64 ]
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Download Linux artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: msim-dap-linux-x64
+          path: dist
+
+      - name: Download macOS artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: msim-dap-darwin-arm64
+          path: dist
+
+      - name: Create or update release and upload assets
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          INPUT_TAG: ${{ github.event.inputs.tag }}
+        run: |
+          TAG="$INPUT_TAG"
+          if [ -z "$TAG" ]; then
+            TAG="latest"
+          fi
+          TITLE="msim-dap ${TAG}"
+
+          if ! gh release view "$TAG" >/dev/null 2>&1; then
+            gh release create "$TAG" \
+              --title "$TITLE" \
+              --notes "Automated build for tag ${TAG}."
+          fi
+
+          gh release upload "$TAG" \
+            "dist/msim-dap-linux-x64#msim-dap-linux-x64" \
+            "dist/msim-dap-darwin-arm64#msim-dap-darwin-arm64" \
+            --clobber

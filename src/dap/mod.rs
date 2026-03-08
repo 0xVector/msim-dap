@@ -3,7 +3,7 @@ mod handler;
 mod server;
 mod state;
 
-pub use handler::Handler;
+pub use handler::BaseHandler;
 pub use server::{serve, server_from_stdio, server_from_tcp};
 
 pub type Result<T> = std::result::Result<T, DapError>;

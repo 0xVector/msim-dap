@@ -1,13 +1,16 @@
 use crate::dap::context::Context;
 use crate::msim::{MsimRequest, MsimResponse};
-use dap::requests::{AttachRequestArguments, DisconnectArguments, InitializeArguments, LaunchRequestArguments, SetBreakpointsArguments, SetExceptionBreakpointsArguments};
+use dap::requests::{
+    AttachRequestArguments, DisconnectArguments, InitializeArguments, LaunchRequestArguments,
+    SetBreakpointsArguments, SetExceptionBreakpointsArguments,
+};
 use dap::responses::{
     ResponseBody, SetBreakpointsResponse, SetExceptionBreakpointsResponse, ThreadsResponse,
 };
 use dap::types::{Breakpoint, Capabilities};
 use std::path::Path;
 
-pub trait Handles {
+pub trait Handler {
     fn initialize(&mut self, ctx: Context, args: &InitializeArguments) -> ResponseBody;
     fn attach(&mut self, ctx: Context, args: &AttachRequestArguments) -> ResponseBody;
     fn launch(&mut self, ctx: Context, args: &LaunchRequestArguments) -> ResponseBody;
@@ -22,9 +25,9 @@ pub trait Handles {
     fn disconnect(&mut self, ctx: Context, args: &DisconnectArguments) -> ResponseBody;
 }
 
-pub struct Handler;
+pub struct BaseHandler;
 
-impl Handles for Handler {
+impl Handler for BaseHandler {
     fn initialize(&mut self, _ctx: Context, args: &InitializeArguments) -> ResponseBody {
         if let Some(name) = &args.client_name {
             eprintln!("New client: {}, {}", name, args.adapter_id);

@@ -1,5 +1,5 @@
 use super::context::Context;
-use super::handler::Handles;
+use super::handler::Handler;
 use super::state::State;
 use super::{DapError, Result};
 use crate::dwarf::DwarfIndex;
@@ -35,7 +35,7 @@ pub fn server_from_tcp(address: impl ToSocketAddrs) -> Result<DapServer> {
 }
 
 pub fn serve(
-    handler: &mut impl Handles,
+    handler: &mut impl Handler,
     server: &mut DapServer,
     connection: &mut impl msim::MsimConnection,
     index: &DwarfIndex,

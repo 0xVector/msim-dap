@@ -1,12 +1,11 @@
 //! MSIM DAP adapter
-use crate::dap::server_from_stdio;
+use crate::adapter::{BaseHandler, serve, server_from_tcp, server_from_stdio};
 use crate::dwarf::parse_dwarf;
 use crate::msim::TcpMsimConnection;
-use dap::{BaseHandler, serve, server_from_tcp};
 use std::path::Path;
 use thiserror::Error;
 
-mod dap;
+mod adapter;
 mod dwarf;
 mod msim;
 
@@ -17,7 +16,7 @@ pub enum Error {
     Dwarf(#[from] dwarf::DwarfError),
 
     #[error("DAP protocol error: {0}")]
-    DAP(#[from] dap::DapError),
+    Adapter(#[from] adapter::AdapterError),
 
     #[error("MSIM error: {0}")]
     MSIM(#[from] msim::MSIMError),

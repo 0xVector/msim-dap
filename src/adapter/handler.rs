@@ -1,4 +1,4 @@
-use crate::dap::context::Context;
+use crate::adapter::context::Context;
 use crate::msim::{MsimRequest, MsimResponse};
 use dap::requests::{
     AttachRequestArguments, DisconnectArguments, InitializeArguments, LaunchRequestArguments,

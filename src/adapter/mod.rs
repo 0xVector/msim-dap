@@ -6,10 +6,10 @@ mod state;
 pub use handler::BaseHandler;
 pub use server::{serve, server_from_stdio, server_from_tcp};
 
-pub type Result<T> = std::result::Result<T, DapError>;
+pub type Result<T> = std::result::Result<T, AdapterError>;
 
 #[derive(thiserror::Error, Debug)]
-pub enum DapError {
+pub enum AdapterError {
     #[error("Server error")]
     ServerError(#[from] dap::errors::ServerError),
 

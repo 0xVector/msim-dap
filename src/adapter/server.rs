@@ -1,7 +1,7 @@
 use super::context::Context;
 use super::handler::Handler;
 use super::state::State;
-use super::{DapError, Result};
+use super::{AdapterError, Result};
 use crate::dwarf::DwarfIndex;
 
 use crate::msim;
@@ -55,7 +55,7 @@ pub fn serve(
             Command::Threads => handler.threads(ctx),
             Command::Disconnect(args) => handler.disconnect(ctx, args),
             _ => {
-                return Err(DapError::UnhandledCommandError(
+                return Err(AdapterError::UnhandledCommandError(
                     format!("command: {:?}", req.command).into(),
                 ));
             }

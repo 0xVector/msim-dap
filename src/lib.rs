@@ -1,14 +1,19 @@
 //! MSIM DAP adapter
-use crate::adapter::{BaseHandler, serve, server_from_tcp, server_from_stdio};
+use crate::adapter::Session;
+use crate::debugger::Debugger;
 use crate::dwarf::parse_dwarf;
-use crate::msim::TcpMsimConnection;
+use crate::msim::TcpConnection;
+use crate::target::MsimTarget;
 use std::path::Path;
 use thiserror::Error;
 
 mod adapter;
+mod debugger;
 mod dwarf;
 mod msim;
+mod target;
 
+/// MSIM-DAP library error type
 #[derive(Debug, Error)]
 #[non_exhaustive]
 pub enum Error {
@@ -20,10 +25,16 @@ pub enum Error {
 
     #[error("MSIM error: {0}")]
     MSIM(#[from] msim::MSIMError),
+
+    #[error("Debugger error: {0}")]
+    Debugger(#[from] debugger::DebuggerError),
 }
 
-/// MSIM-DAP library error type
+/// MSIM-DAP library result
 pub type Result<T> = std::result::Result<T, Error>;
+
+/// Address type (32-bit)
+pub type Address = u32;
 
 /// Port number
 type Port = u16;
@@ -47,31 +58,42 @@ pub struct Config<'a> {
     /// MSIM TCP connection port to use
     pub msim_port: Port,
 
-    /// Path to the kernel.raw file
+    /// Path to the `kernel.raw` file
     pub kernel_path: &'a Path,
 }
+
+pub enum DebugEvent {
+    DapRequest(dap::requests::Request),
+    MsimEvent(msim::EventKind),
+}
+type AnyError = Box<dyn std::error::Error + Send + Sync>;
+pub type DebugEventResult = std::result::Result<DebugEvent, AnyError>;
+pub type DebugEventSender = std::sync::mpsc::Sender<DebugEventResult>;
+pub type DebugEventReceiver = std::sync::mpsc::Receiver<DebugEventResult>;
 
 /// Run with config
 pub fn run(config: &Config) -> Result<()> {
     eprintln!("Parsing dwarf...");
     let index = parse_dwarf(config.kernel_path)?;
 
-    eprintln!("Starting up DAP server...");
-    let mut server = match config.mode {
-        Mode::Stdio => server_from_stdio(),
+    let (tx, rx) = std::sync::mpsc::channel();
+
+    eprintln!("Starting up DAP session...");
+    let dap_session = match config.mode {
+        Mode::Stdio => Session::session_from_stdio(tx.clone()),
         Mode::TCP(port) => {
             let address = format!("127.0.0.1:{}", port);
             eprintln!("Waiting for DAP connection on {}", address);
-            server_from_tcp(address)
+            Session::session_from_tcp(address, tx.clone())
         }
     }?;
 
     eprintln!("Connecting to MSIM...");
-    let mut msim_connection = TcpMsimConnection::new(config.msim_port)?;
+    let connection = TcpConnection::connect(config.msim_port, tx)?;
+    let target = MsimTarget::new(connection, index);
 
-    let mut handler = BaseHandler;
+    let mut debugger = Debugger::new(rx, dap_session, target);
 
     eprintln!("Ready!");
-    serve(&mut handler, &mut server, &mut msim_connection, &index)?;
-    Ok(())
+    debugger.run().map_err(Error::Debugger)
 }

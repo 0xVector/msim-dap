@@ -1,10 +1,7 @@
-mod context;
-mod handler;
 mod server;
-mod state;
+mod session;
 
-pub use handler::BaseHandler;
-pub use server::{serve, server_from_stdio, server_from_tcp};
+pub use session::Session;
 
 pub type Result<T> = std::result::Result<T, AdapterError>;
 
@@ -13,9 +10,9 @@ pub enum AdapterError {
     #[error("Server error")]
     ServerError(#[from] dap::errors::ServerError),
 
-    #[error("Unhandled command")]
-    UnhandledCommandError(String),
-
     #[error("IO error")]
     IoError(#[from] std::io::Error),
+
+    #[error("Poisoned lock error")]
+    PoisonError,
 }

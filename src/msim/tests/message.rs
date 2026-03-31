@@ -1,36 +1,47 @@
-use super::super::Result;
 use super::super::message::*;
 use std::io::Cursor;
 
-/// Test message serialization
+/// Test request message serialization
 #[test]
 pub fn request_serialize() {
-    let gold_serialized: &[u8] = &[RequestType::SetBreakpoint as u8, 0x11, 0x22, 0x33, 0x44];
-
-    let message = RequestMessage {
-        msg_type: RequestType::SetBreakpoint,
-        address: 0x11223344,
-    };
-
-    assert_serialized_message_eq(gold_serialized, &*serialize(&message));
+    let gold_serialized: &[u8] = &[
+        0x01, // Request::SetBreakpoint
+        0x11, 0x22, 0x33, 0x44,
+    ];
+    let message = Request::SetBreakpoint(0x11223344);
+    assert_serialized_message_eq(gold_serialized, &*serialize_request(&message));
 }
 
-/// Test message deserialization
+/// Test response message deserialization
 #[test]
-pub fn responsee_deserialize() -> Result<()> {
-    let gold_message = ResponseMessage {
-        msg_type: ResponseType::Ok,
-        address: 0x12345678,
-    };
+pub fn response_deserialize() -> Result<()> {
+    let gold_message = Inbound::Response(ResponseKind::UnspecifiedError);
+    let serialized: &[u8] = &[
+        0x00, // Inbound::Response
+        ResponseKind::UnspecifiedError as u8,
+    ];
 
-    let serialized: &[u8] = &[ResponseType::Ok as u8, 0x12, 0x34, 0x56, 0x78];
-
-    let message = deserialize(&serialized)?;
-    assert_message_eq(&gold_message, &message);
+    let message = deserialize_inbound(&serialized)?;
+    assert_inbound_message_eq(&gold_message, &message);
     Ok(())
 }
 
-pub fn serialize(message: &RequestMessage) -> Vec<u8> {
+/// Test event message deserialization
+#[test]
+pub fn event_deserialize() -> Result<()> {
+    let gold_message = Inbound::Event(EventKind::StoppedAt(0x12345678));
+    let serialized: &[u8] = &[
+        0x01, // Inbound::Event
+        0x01, // EventKind::StoppedAt
+        0x12, 0x34, 0x56, 0x78,
+    ];
+
+    let message = deserialize_inbound(&serialized)?;
+    assert_inbound_message_eq(&gold_message, &message);
+    Ok(())
+}
+
+pub fn serialize_request(message: &Request) -> Vec<u8> {
     let mut serialized = Vec::new();
     message
         .write(&mut serialized)
@@ -38,9 +49,9 @@ pub fn serialize(message: &RequestMessage) -> Vec<u8> {
     serialized
 }
 
-pub fn deserialize(serialized: &[u8]) -> Result<ResponseMessage> {
+pub fn deserialize_inbound(serialized: &[u8]) -> Result<Inbound> {
     let mut reader = Cursor::new(serialized);
-    ResponseMessage::read(&mut reader)
+    Inbound::read(&mut reader)
 }
 
 pub fn assert_serialized_message_eq(gold_serialized: &[u8], serialized: &[u8]) {
@@ -56,13 +67,9 @@ pub fn assert_serialized_message_eq(gold_serialized: &[u8], serialized: &[u8]) {
     assert_eq!(gold_serialized, serialized, "message serialization failed");
 }
 
-pub fn assert_message_eq(gold_message: &ResponseMessage, message: &ResponseMessage) {
+pub fn assert_inbound_message_eq(gold_message: &Inbound, message: &Inbound) {
     assert_eq!(
-        gold_message.msg_type, message.msg_type,
-        "message type deserialization failed"
-    );
-    assert_eq!(
-        gold_message.address, message.address,
-        "address deserialization failed"
+        gold_message, message,
+        "response message type deserialization failed"
     );
 }

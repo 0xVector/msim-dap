@@ -1,22 +1,17 @@
-use super::context::Context;
-use super::handler::Handler;
-use super::state::State;
 use super::{AdapterError, Result};
-use crate::dwarf::DwarfIndex;
 
-use crate::msim;
-use dap::prelude::ResponseBody;
-use dap::requests::Command;
+use crate::DebugEvent;
+use crate::DebugEventSender;
 use dap::server::Server;
 use std::io::{BufReader, BufWriter, Read, Write, stdin, stdout};
 use std::net::{TcpListener, ToSocketAddrs};
 
-pub type DapServer = Server<Box<dyn Read>, Box<dyn Write>>;
+pub type DapServer = Server<Box<dyn Read + Send>, Box<dyn Write + Send>>;
 
 pub fn server_from_io<R, W>(r: R, w: W) -> Result<DapServer>
 where
-    R: Read + 'static,
-    W: Write + 'static,
+    R: Read + 'static + Send,
+    W: Write + 'static + Send,
 {
     Ok(Server::new(
         BufReader::new(Box::new(r)),
@@ -34,36 +29,23 @@ pub fn server_from_tcp(address: impl ToSocketAddrs) -> Result<DapServer> {
     server_from_io(stream.try_clone()?, stream)
 }
 
-pub fn serve(
-    handler: &mut impl Handler,
-    server: &mut DapServer,
-    connection: &mut impl msim::MsimConnection,
-    index: &DwarfIndex,
-) -> Result<()> {
-    let mut state = State::New;
+pub fn post_server_background(mut server: DapServer, tx: DebugEventSender) {
+    std::thread::spawn(move || {
+        loop {
+            match server.poll_request() {
+                Ok(Some(req)) => {
+                    if tx.send(Ok(DebugEvent::DapRequest(req))).is_err() {
+                        break; // rx dropped, exit
+                    }
+                }
 
-    while let Some(req) = server.poll_request()? {
-        let ctx = Context::new(&mut state, server, connection, index);
+                Ok(None) => break, // got EOF, just exit
 
-        let resp_body: ResponseBody = match &req.command {
-            Command::Initialize(args) => handler.initialize(ctx, args),
-            Command::Attach(args) => handler.attach(ctx, args),
-            Command::Launch(args) => handler.launch(ctx, args),
-            Command::ConfigurationDone => handler.configuration_done(ctx),
-            Command::SetBreakpoints(args) => handler.set_breakpoints(ctx, args),
-            Command::SetExceptionBreakpoints(args) => handler.set_exception_breakpoints(ctx, args),
-            Command::Threads => handler.threads(ctx),
-            Command::Disconnect(args) => handler.disconnect(ctx, args),
-            _ => {
-                return Err(AdapterError::UnhandledCommandError(
-                    format!("command: {:?}", req.command).into(),
-                ));
+                Err(e) => {
+                    tx.send(Err(AdapterError::from(e).into())).ok();
+                    break; // got some DAP error, exit after sending it
+                }
             }
-        };
-
-        let resp = req.success(resp_body);
-        server.respond(resp)?;
-    }
-
-    Ok(())
+        }
+    });
 }

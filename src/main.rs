@@ -1,8 +1,10 @@
 use clap::Parser;
-use msim_dap::{Config, Mode, Result};
+use msim_dap::{Config, Mode};
 use std::env;
 use std::fs::OpenOptions;
 use std::os::fd::AsRawFd;
+
+type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
 
 #[derive(Parser, Debug)]
 #[command(name = "adapter")]
@@ -34,30 +36,27 @@ struct Opts {
     log: bool,
 }
 
-fn redirect_stderr() {
+fn redirect_stderr() -> Result<()> {
     let file = OpenOptions::new()
         .create(true)
         .append(true)
-        .open("/tmp/msim-dap.log")
-        .expect("open log");
+        .open("/tmp/msim-dap.log")?;
 
     unsafe {
         libc::dup2(file.as_raw_fd(), libc::STDERR_FILENO);
     }
+    Ok(())
 }
 
 fn main() -> Result<()> {
     let opts = Opts::parse();
 
-    if opts.log {redirect_stderr();}
+    if opts.log {redirect_stderr()?}
 
-    let cwd = env::current_dir().unwrap();
-    eprintln!("Starting adapter in dir {:?}", cwd);
+    let cwd = env::current_dir()?;
+    eprintln!("Starting adapter in dir {}", cwd.display());
 
-    let mode = match opts.dap_tcp_mode {
-        Some(v) => Mode::TCP(v),
-        None => Mode::Stdio,
-    };
+    let mode = opts.dap_tcp_mode.map_or(Mode::Stdio, Mode::TCP);
 
     let config = Config {
         mode,
@@ -66,7 +65,7 @@ fn main() -> Result<()> {
     };
 
     if opts.verbose {
-        eprintln!("Using config:\n{:#?}", config)
+        eprintln!("Using config:\n{config:#?}");
     }
 
     eprintln!("Running...");

@@ -9,7 +9,7 @@ pub struct MsimTarget<S: Connection> {
 }
 
 impl<S: Connection> MsimTarget<S> {
-    pub fn new(session: S, index: DwarfIndex) -> Self {
+    pub const fn new(session: S, index: DwarfIndex) -> Self {
         Self {
             connection: session,
             index,
@@ -31,7 +31,7 @@ impl<S: Connection> DebugTarget for MsimTarget<S> {
                 line,
             ))?;
 
-        eprint!("BP at {:?}:{} -> [{:#x}]", source, line, address);
+        eprint!("BP at {}:{line} -> [{address:#x}]", source.display());
 
         Ok(self.connection.send(Request::SetBreakpoint(
             u32::try_from(address).map_err(|_| TargetError::AddressOutOfRange(address))?,
@@ -42,8 +42,8 @@ impl<S: Connection> DebugTarget for MsimTarget<S> {
 impl From<MSIMError> for TargetError {
     fn from(error: MSIMError) -> Self {
         match error {
-            MSIMError::RequestFailed(req_err) => TargetError::RequestFailed(req_err.into()),
-            _ => TargetError::SessionLost,
+            MSIMError::RequestFailed(req_err) => Self::RequestFailed(req_err.into()),
+            _ => Self::SessionLost,
         }
     }
 }

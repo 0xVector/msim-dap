@@ -15,7 +15,7 @@ pub fn parse_dwarf(path: &Path) -> Result<DwarfIndex> {
         gimli::RunTimeEndian::Big
     };
     let builder =
-        parse_lines(&object, endian).map_err(|e| DwarfError::ParseError(e.to_string()))?;
+        parse_lines(&object, endian).map_err(|e| DwarfError::Parse(e.to_string()))?;
 
     Ok(builder.build())
 }
@@ -36,10 +36,10 @@ fn parse_lines(
     // Borrow a `Cow<[u8]>` to create an `EndianSlice`.
     let borrow_section = |section| gimli::EndianSlice::new(borrow::Cow::as_ref(section), endian);
 
-    // Load all of the sections.
+    // Load all the sections.
     let dwarf_sections = gimli::DwarfSections::load(&load_section)?;
 
-    // Create `EndianSlice`s for all of the sections.
+    // Create `EndianSlice`s for all the sections.
     let dwarf = dwarf_sections.borrow(borrow_section);
 
     let mut builder = DwarfIndexBuilder::new();
@@ -47,20 +47,17 @@ fn parse_lines(
     // Iterate over the compilation units.
     let mut iter = dwarf.units();
     while let Some(header) = iter.next()? {
-        // println!(
-        //     "Line number info for unit at <.debug_info+0x{:x}>",
-        //     header.offset().as_debug_info_offset().unwrap().0
-        // );
         let unit = dwarf.unit(header)?;
         let unit = unit.unit_ref(&dwarf);
 
         // Get the line program for the compilation unit.
         if let Some(program) = unit.line_program.clone() {
-            let comp_dir = if let Some(ref dir) = unit.comp_dir {
-                path::PathBuf::from(dir.to_string_lossy().into_owned())
-            } else {
-                path::PathBuf::new()
-            };
+            let comp_dir = unit
+                .comp_dir
+                .as_ref()
+                .map_or_else(path::PathBuf::new, |dir| {
+                    path::PathBuf::from(dir.to_string_lossy().into_owned())
+                });
 
             // Iterate over the line program rows.
             let mut rows = program.rows();
@@ -75,10 +72,10 @@ fn parse_lines(
                         path.clone_from(&comp_dir);
 
                         // The directory index 0 is defined to correspond to the compilation unit directory.
-                        if file.directory_index() != 0 {
-                            if let Some(dir) = file.directory(header) {
-                                path.push(unit.attr_string(dir)?.to_string_lossy().as_ref());
-                            }
+                        if file.directory_index() != 0
+                            && let Some(dir) = file.directory(header)
+                        {
+                            path.push(unit.attr_string(dir)?.to_string_lossy().as_ref());
                         }
 
                         path.push(
@@ -90,10 +87,7 @@ fn parse_lines(
 
                     // Determine line/column. DWARF line/column is never 0, so we use that
                     // but other applications may want to display this differently.
-                    let line = match row.line() {
-                        Some(line) => line.get(),
-                        None => 0,
-                    };
+                    let line = row.line().map_or(0, std::num::NonZero::get);
                     let _column = match row.column() {
                         gimli::ColumnType::LeftEdge => 0,
                         gimli::ColumnType::Column(column) => column.get(),

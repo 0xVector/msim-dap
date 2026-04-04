@@ -16,7 +16,7 @@ pub enum MessageError {
 
 /// Types of requests that can be sent to MSIM.
 #[repr(u8)]
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Request {
     SetBreakpoint(Address) = 0x01,
     Resume = 0x02,
@@ -24,7 +24,7 @@ pub enum Request {
 
 /// Types of inbound messages from MSIM.
 #[repr(u8)]
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Inbound {
     Response(ResponseKind) = 0x00,
     Event(EventKind) = 0x01,
@@ -32,7 +32,7 @@ pub enum Inbound {
 
 /// Types of responses that can be received from MSIM in response to a request.
 #[repr(u8)]
-#[derive(Debug, Clone, Copy, PartialEq, Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum ResponseKind {
     /// Response indicating that the request was successful.
     /// Represented on the wire as a single byte with value 0.
@@ -44,16 +44,16 @@ pub enum ResponseKind {
 
 /// Types of events that can be received from MSIM.
 #[repr(u8)]
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum EventKind {
     StoppedAt(Address) = 0x01,
 }
 
 impl Request {
     /// Write the Request to the given writer.
-    pub fn write(&self, writer: &mut impl Write) -> Result<()> {
+    pub fn write(self, writer: &mut impl Write) -> Result<()> {
         let (kind, address) = match self {
-            Self::SetBreakpoint(a) => (0x01, *a),
+            Self::SetBreakpoint(a) => (0x01, a),
             Self::Resume => (0x02, 0),
         };
         writer.write_u8(kind)?;
@@ -74,7 +74,7 @@ impl Inbound {
     }
 }
 impl ResponseKind {
-    /// Read a ResponseKind from the given reader.
+    /// Read a [`ResponseKind`] from the given reader.
     pub fn read(reader: &mut impl Read) -> Result<Self> {
         match reader.read_u8()? {
             0x00 => Ok(Self::Ok),
@@ -85,7 +85,7 @@ impl ResponseKind {
 }
 
 impl EventKind {
-    /// Read an EventKind from the given reader.
+    /// Read an [`EventKind`] from the given reader.
     pub fn read(reader: &mut impl Read) -> Result<Self> {
         match reader.read_u8()? {
             0x01 => Ok(Self::StoppedAt(reader.read_u32::<BigEndian>()?)),

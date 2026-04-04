@@ -44,7 +44,7 @@ impl From<std::io::Error> for MSIMError {
     fn from(e: std::io::Error) -> Self {
         match e.kind() {
             std::io::ErrorKind::UnexpectedEof => ClosedError,
-            _ => MSIMError::IOError(e),
+            _ => Self::IOError(e),
         }
     }
 }

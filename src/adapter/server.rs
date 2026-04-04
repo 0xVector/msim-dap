@@ -8,25 +8,22 @@ use std::net::{TcpListener, ToSocketAddrs};
 
 pub type DapServer = Server<Box<dyn Read + Send>, Box<dyn Write + Send>>;
 
-pub fn server_from_io<R, W>(r: R, w: W) -> Result<DapServer>
+pub fn server_from_io<R, W>(r: R, w: W) -> DapServer
 where
     R: Read + 'static + Send,
     W: Write + 'static + Send,
 {
-    Ok(Server::new(
-        BufReader::new(Box::new(r)),
-        BufWriter::new(Box::new(w)),
-    ))
+    Server::new(BufReader::new(Box::new(r)), BufWriter::new(Box::new(w)))
 }
 
-pub fn server_from_stdio() -> Result<DapServer> {
+pub fn server_from_stdio() -> DapServer {
     server_from_io(stdin(), stdout())
 }
 
 pub fn server_from_tcp(address: impl ToSocketAddrs) -> Result<DapServer> {
     let listener = TcpListener::bind(address)?;
     let (stream, _addr) = listener.accept()?;
-    server_from_io(stream.try_clone()?, stream)
+    Ok(server_from_io(stream.try_clone()?, stream))
 }
 
 pub fn post_server_background(mut server: DapServer, tx: DebugEventSender) {

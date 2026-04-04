@@ -9,11 +9,11 @@ pub type Result<T> = std::result::Result<T, DwarfError>;
 #[derive(thiserror::Error, Debug)]
 pub enum DwarfError {
     #[error("Parse error")]
-    ParseError(String),
+    Parse(String),
 
     #[error("Object lib error")]
-    ObjectError(#[from] object::Error),
+    Object(#[from] object::Error),
 
     #[error("IO error")]
-    IoError(#[from] std::io::Error),
+    Io(#[from] std::io::Error),
 }

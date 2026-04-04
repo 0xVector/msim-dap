@@ -46,7 +46,7 @@ impl<T: DebugTarget> Debugger<T> {
                 Err(_) => {
                     return Ok(());
                 }
-            };
+            }
         }
     }
 
@@ -73,7 +73,7 @@ impl<T: DebugTarget> Debugger<T> {
             DebugEvent::MsimEvent(event) => match self.handle_msim_event(event) {
                 Ok(opt_body) => {
                     if let Some(event_body) = opt_body {
-                        self.dap_session.send(Event(event_body))?
+                        self.dap_session.send(Event(event_body))?;
                     }
                     Ok(())
                 }
@@ -92,14 +92,14 @@ impl<T: DebugTarget> Debugger<T> {
 
     fn handle_request(&mut self, req: &dap::requests::Request) -> Result<ResponseBody> {
         match &req.command {
-            Command::Initialize(args) => self.initialize(&args),
-            Command::Attach(args) => self.attach(&args),
-            Command::Launch(args) => self.launch(&args),
+            Command::Initialize(args) => self.initialize(args),
+            Command::Attach(args) => self.attach(args),
+            Command::Launch(args) => self.launch(args),
             Command::ConfigurationDone => self.configuration_done(),
-            Command::SetBreakpoints(args) => self.set_breakpoints(&args),
-            Command::SetExceptionBreakpoints(args) => self.set_exception_breakpoints(&args),
+            Command::SetBreakpoints(args) => self.set_breakpoints(args),
+            Command::SetExceptionBreakpoints(args) => self.set_exception_breakpoints(args),
             Command::Threads => self.threads(),
-            Command::Disconnect(args) => self.disconnect(&args),
+            Command::Disconnect(args) => self.disconnect(args),
             _ => Err(DebuggerError::RequestFailed(
                 format!("command: {:?}", req.command).into(),
             )),
@@ -114,6 +114,12 @@ impl<T: DebugTarget> Debugger<T> {
 }
 
 // DAP request handling
+// To make handlers consistent silence linter:
+#[allow(
+    clippy::unnecessary_wraps,
+    clippy::unused_self,
+    clippy::needless_pass_by_ref_mut
+)]
 impl<T: DebugTarget> Debugger<T> {
     fn initialize(&mut self, args: &InitializeArguments) -> Result<ResponseBody> {
         if let Some(name) = &args.client_name {
@@ -151,8 +157,14 @@ impl<T: DebugTarget> Debugger<T> {
     }
 
     fn set_breakpoints(&mut self, args: &SetBreakpointsArguments) -> Result<ResponseBody> {
-        let path = args.source.path.as_deref().unwrap_or("NO-PATH"); // TODO: some better default handling
-        eprintln!("Path: {:?}", path);
+        let path = args
+            .source
+            .path
+            .as_deref()
+            .ok_or(DebuggerError::RequestFailed(
+                "Source path is required for breakpoints".into(),
+            ))?;
+        eprintln!("Path: {path}");
 
         let bps = args.breakpoints.as_deref().unwrap_or(&[]);
 
@@ -172,7 +184,9 @@ impl<T: DebugTarget> Debugger<T> {
                 offset: None,
             };
 
-            let res = self.target.set_breakpoint(Path::new(&path), bp.line as u64);
+            let res = self
+                .target
+                .set_breakpoint(Path::new(&path), bp.line.cast_unsigned());
             match res {
                 Ok(()) => {
                     bp_info.verified = true;
@@ -218,24 +232,27 @@ impl<T: DebugTarget> Debugger<T> {
         ))
     }
 
-    fn threads(&mut self) -> Result<ResponseBody> {
+    const fn threads(&mut self) -> Result<ResponseBody> {
         Ok(ResponseBody::Threads(ThreadsResponse { threads: vec![] }))
     }
-    fn disconnect(&mut self, _args: &DisconnectArguments) -> Result<ResponseBody> {
+    const fn disconnect(&mut self, _args: &DisconnectArguments) -> Result<ResponseBody> {
         Ok(ResponseBody::Disconnect)
     }
 }
 
 // MSIM event handling
+// To make handlers consistent silence linter:
+#[allow(
+    clippy::unnecessary_wraps,
+    clippy::unused_self,
+    clippy::needless_pass_by_ref_mut
+)]
 impl<T: DebugTarget> Debugger<T> {
     fn handle_event_stopped_at(&mut self, address: Address) -> Result<Option<dap::events::Event>> {
         Ok(Some(dap::events::Event::Stopped(
             dap::events::StoppedEventBody {
                 reason: dap::types::StoppedEventReason::Breakpoint,
-                description: Some(format!(
-                    "Stopped at address {:#x} due to breakpoint",
-                    address
-                )),
+                description: Some(format!("Stopped at address {address:#x} due to breakpoint")),
                 thread_id: None,
                 preserve_focus_hint: None,
                 text: None,
@@ -249,8 +266,8 @@ impl<T: DebugTarget> Debugger<T> {
 impl From<TargetError> for DebuggerError {
     fn from(error: TargetError) -> Self {
         match error {
-            TargetError::SessionLost => DebuggerError::SessionLost,
-            e => DebuggerError::RequestFailed(Box::new(e)),
+            TargetError::SessionLost => Self::SessionLost,
+            e => Self::RequestFailed(Box::new(e)),
         }
     }
 }

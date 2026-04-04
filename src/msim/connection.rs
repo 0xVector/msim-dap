@@ -17,7 +17,7 @@ pub struct TcpConnection {
 }
 
 impl TcpConnection {
-    fn new(stream: TcpStream, resp_rx: ResponseRx) -> Self {
+    const fn new(stream: TcpStream, resp_rx: ResponseRx) -> Self {
         Self { stream, resp_rx }
     }
 
@@ -60,9 +60,7 @@ fn post_msim_background(
                 }
 
                 Err(e) => {
-                    event_tx
-                        .send(Err(MSIMError::from(e).into()))
-                        .ok();
+                    event_tx.send(Err(MSIMError::from(e).into())).ok();
                     break;
                 }
             }
@@ -78,12 +76,9 @@ impl Connection for TcpConnection {
 
         request.write(&mut self.stream)?;
 
-        match self.resp_rx.recv() {
-            Ok(resp) => resp.into_result(),
-
-            // Channel closed
-            Err(_) => Err(MSIMError::ListenerDied),
-        }
+        self.resp_rx
+            .recv()
+            .map_or(Err(MSIMError::ListenerDied), ResponseKind::into_result)
     }
 }
 
@@ -91,18 +86,16 @@ impl From<MessageError> for MSIMError {
     fn from(e: MessageError) -> Self {
         match e {
             MessageError::IOError(io_e) => io_e.into(),
-            MessageError::ProtocolError => MSIMError::ParseError,
+            MessageError::ProtocolError => Self::ParseError,
         }
     }
 }
 
 impl ResponseKind {
-    pub fn into_result(self) -> Result<()> {
+    pub const fn into_result(self) -> Result<()> {
         match self {
-            ResponseKind::Ok => Ok(()),
-            ResponseKind::UnspecifiedError => {
-                Err(MSIMError::RequestFailed(RequestError::UnspecifiedError))
-            }
+            Self::Ok => Ok(()),
+            Self::UnspecifiedError => Err(MSIMError::RequestFailed(RequestError::UnspecifiedError)),
         }
     }
 }

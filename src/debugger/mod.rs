@@ -1,7 +1,7 @@
-mod debugger;
+mod core;
 
 use crate::adapter;
-pub use debugger::Debugger;
+pub use core::Debugger;
 
 pub type Result<T> = std::result::Result<T, DebuggerError>;
 

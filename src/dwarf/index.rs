@@ -21,7 +21,7 @@ pub struct DwarfIndexBuilder {
 
 impl DwarfIndexBuilder {
     pub fn new() -> Self {
-        DwarfIndexBuilder {
+        Self {
             current_id: FileId(0),
             file_ids: HashMap::new(),
             line_to_address: HashMap::new(),

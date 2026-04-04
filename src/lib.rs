@@ -62,6 +62,7 @@ pub struct Config<'a> {
     pub kernel_path: &'a Path,
 }
 
+#[allow(clippy::large_enum_variant)] // Unnecessary to box here
 pub enum DebugEvent {
     DapRequest(dap::requests::Request),
     MsimEvent(msim::EventKind),
@@ -72,6 +73,8 @@ pub type DebugEventSender = std::sync::mpsc::Sender<DebugEventResult>;
 pub type DebugEventReceiver = std::sync::mpsc::Receiver<DebugEventResult>;
 
 /// Run with config
+/// # Errors
+/// Fatal errors from the adapter, debugger, MSIM connection, or DWARF parsing
 pub fn run(config: &Config) -> Result<()> {
     eprintln!("Parsing dwarf...");
     let index = parse_dwarf(config.kernel_path)?;
@@ -82,11 +85,11 @@ pub fn run(config: &Config) -> Result<()> {
     let dap_session = match config.mode {
         Mode::Stdio => Session::session_from_stdio(tx.clone()),
         Mode::TCP(port) => {
-            let address = format!("127.0.0.1:{}", port);
-            eprintln!("Waiting for DAP connection on {}", address);
-            Session::session_from_tcp(address, tx.clone())
+            let address = format!("127.0.0.1:{port}");
+            eprintln!("Waiting for DAP connection on {address}");
+            Session::session_from_tcp(address, tx.clone())?
         }
-    }?;
+    };
 
     eprintln!("Connecting to MSIM...");
     let connection = TcpConnection::connect(config.msim_port, tx)?;

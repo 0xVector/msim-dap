@@ -1,6 +1,9 @@
 mod core;
+mod events;
+mod requests;
 
 use crate::adapter;
+
 pub use core::Debugger;
 
 pub type Result<T> = std::result::Result<T, DebuggerError>;

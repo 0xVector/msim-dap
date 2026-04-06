@@ -2,6 +2,8 @@ use super::{Debugger, Result};
 use crate::Address;
 use crate::target::DebugTarget;
 
+type EventResult = Result<Option<dap::events::Event>>;
+
 // MSIM event handling
 // To make handlers consistent silence linter:
 #[allow(
@@ -10,10 +12,13 @@ use crate::target::DebugTarget;
     clippy::needless_pass_by_ref_mut
 )]
 impl<T: DebugTarget> Debugger<T> {
-    pub(super) fn handle_event_stopped_at(
-        &mut self,
-        address: Address,
-    ) -> Result<Option<dap::events::Event>> {
+    pub(super) const fn handle_event_exited(&mut self) -> EventResult {
+        Ok(Some(dap::events::Event::Exited(
+            dap::events::ExitedEventBody { exit_code: 0 }, // TODO: track exit code?
+        )))
+    }
+
+    pub(super) fn handle_event_stopped_at(&mut self, address: Address) -> EventResult {
         Ok(Some(dap::events::Event::Stopped(
             dap::events::StoppedEventBody {
                 reason: dap::types::StoppedEventReason::Breakpoint,

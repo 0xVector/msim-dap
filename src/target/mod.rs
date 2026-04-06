@@ -2,10 +2,8 @@ use std::path::Path;
 
 mod msim_target;
 
-
 pub use msim_target::MsimTarget;
 pub type Result<T> = std::result::Result<T, TargetError>;
-type AnyError = Box<dyn std::error::Error + Send + Sync>;
 
 #[derive(thiserror::Error, Debug)]
 pub enum TargetError {
@@ -14,7 +12,7 @@ pub enum TargetError {
     SessionLost,
 
     #[error("Request failed")]
-    RequestFailed(#[source] AnyError),
+    RequestFailed,
 
     // TODO: are the params even needed?
     #[error("Address not found for {0}:{1}")]

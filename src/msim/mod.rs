@@ -1,12 +1,14 @@
 mod connection;
-mod message;
+mod frame;
 mod tcp;
 #[cfg(test)]
 mod tests;
 
-use crate::msim::MSIMError::ClosedError;
+use crate::Address;
+use frame::ArgType;
+
 pub use connection::{Connection, TcpConnection};
-pub use message::{EventKind, Request};
+pub use frame::{EventKind, Request};
 
 pub type Result<T> = std::result::Result<T, MSIMError>;
 
@@ -23,28 +25,42 @@ pub enum MSIMError {
     #[error("Parse error")]
     ParseError,
 
+    /// Unexpected message from MSIM, e.g. response when no request is pending
+    /// This is a fatal error, as it indicates a desync between the adapter and MSIM.
     #[error("Unexpected response from MSIM")]
     UnexpectedMessage,
 
-    #[error("Request failed: {0}")]
-    RequestFailed(RequestError),
+    /// Recoverable error while processing a request, e.g. invalid params or MSIM internal error.
+    #[error("Request failed")]
+    RequestFailed,
 
-    // MSIM listener thread died unexpectedly
+    /// MSIM listener thread died unexpectedly.
     #[error("Listener died")]
     ListenerDied,
 }
 
-#[derive(thiserror::Error, Debug)]
-pub enum RequestError {
-    #[error("Further unspecified request error")]
-    UnspecifiedError,
+// TODO: look I don't love this being separate from other protocol messages but for now im keeping it
+/// Interpreted MSIM events
+#[derive(Copy, Clone)]
+pub enum Event {
+    Exited,
+    StoppedAt(Address),
 }
 
 impl From<std::io::Error> for MSIMError {
     fn from(e: std::io::Error) -> Self {
         match e.kind() {
-            std::io::ErrorKind::UnexpectedEof => ClosedError,
+            std::io::ErrorKind::UnexpectedEof => Self::ClosedError,
             _ => Self::IOError(e),
+        }
+    }
+}
+
+impl Event {
+    pub const fn from_raw(kind: EventKind, arg0: ArgType, _arg1: ArgType) -> Self {
+        match kind {
+            EventKind::Exited => Self::Exited,
+            EventKind::StoppedAt => Self::StoppedAt(arg0),
         }
     }
 }

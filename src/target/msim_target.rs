@@ -19,30 +19,27 @@ impl<S: Connection> MsimTarget<S> {
 
 impl<S: Connection> DebugTarget for MsimTarget<S> {
     fn resume(&mut self) -> Result<()> {
-        Ok(self.connection.send(Request::Resume)?)
+        Ok(self.connection.send(Request::Resume)?.get_result()?)
     }
 
     fn set_breakpoint(&mut self, source: &Path, line: u64) -> Result<()> {
-        let address = self
-            .index
-            .get_address(source, line)
-            .ok_or(TargetError::AddressNotFound(
-                source.to_string_lossy().into_owned(),
-                line,
-            ))?;
+        let address = self.index.get_address(source, line).ok_or_else(|| {
+            TargetError::AddressNotFound(source.to_string_lossy().into_owned(), line)
+        })?;
 
         eprint!("BP at {}:{line} -> [{address:#x}]", source.display());
-
-        Ok(self.connection.send(Request::SetBreakpoint(
-            u32::try_from(address).map_err(|_| TargetError::AddressOutOfRange(address))?,
-        ))?)
+        Ok(self
+            .connection
+            .send(Request::SetCodeBreakpoint(address))?
+            .get_result()?)
     }
 }
 
 impl From<MSIMError> for TargetError {
     fn from(error: MSIMError) -> Self {
+        // Default to SessionLost (fatal), only RequestFailed is recoverable
         match error {
-            MSIMError::RequestFailed(req_err) => Self::RequestFailed(req_err.into()),
+            MSIMError::RequestFailed => Self::RequestFailed,
             _ => Self::SessionLost,
         }
     }

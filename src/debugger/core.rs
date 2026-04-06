@@ -98,9 +98,10 @@ impl<T: DebugTarget> Debugger<T> {
         }
     }
 
-    fn handle_msim_event(&mut self, event: msim::EventKind) -> Result<Option<dap::events::Event>> {
+    fn handle_msim_event(&mut self, event: msim::Event) -> Result<Option<dap::events::Event>> {
         match event {
-            msim::EventKind::StoppedAt(a) => self.handle_event_stopped_at(a),
+            msim::Event::Exited => self.handle_event_exited(),
+            msim::Event::StoppedAt(address) => self.handle_event_stopped_at(address),
         }
     }
 }

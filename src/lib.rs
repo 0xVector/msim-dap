@@ -33,8 +33,8 @@ pub enum Error {
 /// MSIM-DAP library result
 pub type Result<T> = std::result::Result<T, Error>;
 
-/// Address type (32-bit)
-pub type Address = u32;
+/// Address type (64-bit)
+pub type Address = u64;
 
 /// Port number
 type Port = u16;
@@ -62,10 +62,13 @@ pub struct Config<'a> {
     pub kernel_path: &'a Path,
 }
 
+/// General event type for the debugger, which can be:
+/// - either a DAP request from the adapter,
+/// - or an MSIM event from the target session
 #[allow(clippy::large_enum_variant)] // Unnecessary to box here
 pub enum DebugEvent {
     DapRequest(dap::requests::Request),
-    MsimEvent(msim::EventKind),
+    MsimEvent(msim::Event),
 }
 type AnyError = Box<dyn std::error::Error + Send + Sync>;
 pub type DebugEventResult = std::result::Result<DebugEvent, AnyError>;

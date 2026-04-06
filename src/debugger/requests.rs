@@ -99,8 +99,8 @@ impl<T: DebugTarget> Debugger<T> {
                     }
 
                     // Recoverable
-                    TargetError::RequestFailed(e) => {
-                        eprintln!("Setting BP {path}:{} failed! ({e})", bp.line);
+                    TargetError::RequestFailed => {
+                        eprintln!("Setting BP {path}:{} failed!", bp.line);
                     }
 
                     TargetError::AddressNotFound(path, line) => {

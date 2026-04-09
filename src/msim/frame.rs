@@ -186,6 +186,7 @@ pub enum EventKind {
     /// Event indicating that the simulator has exited. `0x01`
     Exited = 0x01,
 
+    // TODO: add reason to differentiate BPs etc
     /// Event indicating that the simulator has stopped at `arg0=address`. `0x02`
     StoppedAt = 0x02,
 }

@@ -1,6 +1,5 @@
-use super::core::{HandlerAction, PostAction};
+use super::core::{HandlerAction, PostAction, PostAction::Disconnect};
 use super::{Debugger, DebuggerError, Result};
-use crate::debugger::core::PostAction::Disconnect;
 use crate::target::{DebugTarget, TargetError};
 use dap::prelude::ResponseBody;
 use dap::requests::{
@@ -134,13 +133,13 @@ impl<T: DebugTarget> Debugger<T> {
         })
     }
 
-    pub(super) fn set_exception_breakpoints(
+    pub(super) const fn set_exception_breakpoints(
         &mut self,
         _args: &SetExceptionBreakpointsArguments,
     ) -> HandlerResult {
         Ok(HandlerAction {
             body: ResponseBody::SetExceptionBreakpoints(SetExceptionBreakpointsResponse {
-                breakpoints: vec![].into(),
+                breakpoints: Some(vec![]),
             }),
             post_action: None,
         })

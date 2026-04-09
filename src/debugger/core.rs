@@ -90,7 +90,7 @@ impl<T: DebugTarget> Debugger<T> {
 
                 // Recoverable error, log it and continue
                 Err(DebuggerError::RequestFailed(e)) => {
-                    eprintln!("Error handling request: {e}");
+                    eprintln!("Error handling event: {e}");
                     Ok(())
                 }
 

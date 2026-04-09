@@ -43,7 +43,9 @@ fn redirect_stderr() -> Result<()> {
         .open("/tmp/msim-dap.log")?;
 
     unsafe {
-        libc::dup2(file.as_raw_fd(), libc::STDERR_FILENO);
+        if libc::dup2(file.as_raw_fd(), libc::STDERR_FILENO) == -1 {
+            return Err(Box::new(std::io::Error::last_os_error()));
+        };
     }
     Ok(())
 }
@@ -51,7 +53,9 @@ fn redirect_stderr() -> Result<()> {
 fn main() -> Result<()> {
     let opts = Opts::parse();
 
-    if opts.log {redirect_stderr()?}
+    if opts.log {
+        redirect_stderr()?;
+    }
 
     let cwd = env::current_dir()?;
     eprintln!("Starting adapter in dir {}", cwd.display());

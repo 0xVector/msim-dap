@@ -100,15 +100,20 @@ impl<T: DebugTarget> Debugger<T> {
 
                     // Recoverable
                     TargetError::RequestFailed => {
-                        eprintln!("Setting BP {path}:{} failed!", bp.line);
+                        let msg = format!("Setting BP {path}:{} failed!", bp.line);
+                        eprintln!("{msg}");
+                        bp_info.message = Some(msg);
                     }
 
                     TargetError::AddressNotFound(path, line) => {
-                        eprintln!("Address not found for {path}:{line}");
+                        let msg = format!("Address not found for {path}:{line}");
+                        eprintln!("{msg}");
+                        bp_info.message = Some(msg);
                     }
                     TargetError::AddressOutOfRange(a) => {
-                        let line = bp.line;
-                        eprintln!("Address out of range for {path}:{line} ({a})");
+                        let msg = format!("Address out of range for {path}:{} ({a})", bp.line);
+                        eprintln!("{msg}");
+                        bp_info.message = Some(msg);
                     }
                 },
             }

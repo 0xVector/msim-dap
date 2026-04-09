@@ -135,7 +135,9 @@ impl<T: DebugTarget> Debugger<T> {
     pub(super) const fn threads(&mut self) -> Result<ResponseBody> {
         Ok(ResponseBody::Threads(ThreadsResponse { threads: vec![] }))
     }
-    pub(super) const fn disconnect(&mut self, _args: &DisconnectArguments) -> Result<ResponseBody> {
-        Ok(ResponseBody::Disconnect)
+
+    pub(super) fn disconnect(&mut self, _args: &DisconnectArguments) -> Result<ResponseBody> {
+        self.target.stop().ok(); // Best effort to stop target, ignore errors since we're disconnecting anyway
+        Err(DebuggerError::DapDisconnected)
     }
 }

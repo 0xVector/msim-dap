@@ -23,6 +23,9 @@ pub enum DebuggerError {
     #[error("Received fatal error from listeners: {0}")]
     ReceivedFatalError(#[source] AnyError),
 
+    #[error("Debugging tool disconnected")]
+    DapDisconnected,
+
     // Recoverable error
     #[error("Request failed")]
     RequestFailed(#[source] AnyError),

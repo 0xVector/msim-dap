@@ -22,6 +22,17 @@ impl<S: Connection> DebugTarget for MsimTarget<S> {
         Ok(self.connection.send(Request::Resume)?.get_result()?)
     }
 
+    fn stop(&mut self) -> Result<()> {
+        match self.connection.send(Request::Stop) {
+            // We treat these errors as success
+            Ok(_)
+            | Err(MSIMError::ListenerDied)
+            | Err(MSIMError::ClosedError)
+            | Err(MSIMError::IOError(_)) => Ok(()),
+            Err(e) => Err(e.into()),
+        }
+    }
+
     fn set_breakpoint(&mut self, source: &Path, line: u64) -> Result<()> {
         let address = self.index.get_address(source, line).ok_or_else(|| {
             TargetError::AddressNotFound(source.to_string_lossy().into_owned(), line)

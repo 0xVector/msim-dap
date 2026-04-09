@@ -26,7 +26,10 @@ impl<T: DebugTarget> Debugger<T> {
     pub fn run(&mut self) -> Result<()> {
         loop {
             match self.receiver.recv() {
-                Ok(Ok(debug_event)) => self.handle_event(debug_event)?,
+                Ok(Ok(debug_event)) => match self.handle_event(debug_event) {
+                    Err(DebuggerError::DapDisconnected) => return Ok(()),
+                    other => other?,
+                },
 
                 // Received fatal error from listener, log it and exit
                 Ok(Err(fatal_err)) => {
@@ -49,6 +52,14 @@ impl<T: DebugTarget> Debugger<T> {
             // Handle requests
             DebugEvent::DapRequest(req) => match self.handle_request(&req) {
                 Ok(body) => Ok(self.dap_session.send(Response(req.success(body)))?),
+
+                // Handle disconnect
+                Err(DebuggerError::DapDisconnected) => {
+                    // We need to send the response here as the handler Err'd
+                    self.dap_session
+                        .send(Response(req.success(ResponseBody::Disconnect)))?;
+                    Err(DebuggerError::DapDisconnected)
+                }
 
                 // Recoverable error, send error response
                 Err(DebuggerError::RequestFailed(e)) => {

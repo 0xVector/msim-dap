@@ -24,5 +24,6 @@ pub enum TargetError {
 
 pub trait DebugTarget {
     fn resume(&mut self) -> Result<()>;
+    fn stop(&mut self) -> Result<()>;
     fn set_breakpoint(&mut self, source: &Path, line: u64) -> Result<()>;
 }

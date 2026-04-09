@@ -1,6 +1,7 @@
+use super::core::{HandlerAction, PostAction};
 use super::{Debugger, DebuggerError, Result};
+use crate::debugger::core::PostAction::Disconnect;
 use crate::target::{DebugTarget, TargetError};
-use dap::base_message::Sendable::Event;
 use dap::prelude::ResponseBody;
 use dap::requests::{
     AttachRequestArguments, DisconnectArguments, InitializeArguments, LaunchRequestArguments,
@@ -10,6 +11,8 @@ use dap::responses::{SetBreakpointsResponse, SetExceptionBreakpointsResponse, Th
 use dap::types::{Breakpoint, Capabilities};
 use std::path::Path;
 
+type HandlerResult = Result<HandlerAction>;
+
 // DAP request handling
 // To make handlers consistent silence linter:
 #[allow(
@@ -18,45 +21,47 @@ use std::path::Path;
     clippy::needless_pass_by_ref_mut
 )]
 impl<T: DebugTarget> Debugger<T> {
-    pub(super) fn initialize(&mut self, args: &InitializeArguments) -> Result<ResponseBody> {
+    pub(super) fn initialize(&mut self, args: &InitializeArguments) -> HandlerResult {
         if let Some(name) = &args.client_name {
             eprintln!("New client: {name}, {}", args.adapter_id);
         }
 
-        Ok(ResponseBody::Initialize(Capabilities {
-            supports_configuration_done_request: Some(true),
-            ..Default::default() // No extra capabilities advertised
-        }))
+        Ok(HandlerAction {
+            body: ResponseBody::Initialize(Capabilities {
+                supports_configuration_done_request: Some(true),
+                ..Default::default() // No extra capabilities advertised
+            }),
+            post_action: Some(PostAction::SendEvent(dap::events::Event::Initialized)),
+        })
     }
 
-    pub(super) fn attach(&mut self, _args: &AttachRequestArguments) -> Result<ResponseBody> {
+    pub(super) fn attach(&mut self, _args: &AttachRequestArguments) -> HandlerResult {
         eprintln!("Attach request");
-        // TODO: move to initialize to be spec-consistent
-        self.dap_session
-            .send(Event(dap::events::Event::Initialized))?;
-
-        Ok(ResponseBody::Attach)
+        Ok(HandlerAction {
+            body: ResponseBody::Attach,
+            post_action: None,
+        })
     }
 
-    pub(super) fn launch(&mut self, _args: &LaunchRequestArguments) -> Result<ResponseBody> {
+    pub(super) fn launch(&mut self, _args: &LaunchRequestArguments) -> HandlerResult {
         eprintln!("Launch request");
-        // TODO: move to initialize to be spec-consistent
-        self.dap_session
-            .send(Event(dap::events::Event::Initialized))?;
-        Ok(ResponseBody::Launch)
+        Ok(HandlerAction {
+            body: ResponseBody::Launch,
+            post_action: None,
+        })
     }
 
-    pub(super) fn configuration_done(&mut self) -> Result<ResponseBody> {
+    pub(super) fn configuration_done(&mut self) -> HandlerResult {
         // TODO: maybe its not universal/shouldn't be to resume on startup
-
         self.target.resume()?;
-        Ok(ResponseBody::ConfigurationDone)
+
+        Ok(HandlerAction {
+            body: ResponseBody::ConfigurationDone,
+            post_action: None,
+        })
     }
 
-    pub(super) fn set_breakpoints(
-        &mut self,
-        args: &SetBreakpointsArguments,
-    ) -> Result<ResponseBody> {
+    pub(super) fn set_breakpoints(&mut self, args: &SetBreakpointsArguments) -> HandlerResult {
         let path = args
             .source
             .path
@@ -121,28 +126,39 @@ impl<T: DebugTarget> Debugger<T> {
             set_bps.push(bp_info);
         }
 
-        Ok(ResponseBody::SetBreakpoints(SetBreakpointsResponse {
-            breakpoints: set_bps,
-        }))
+        Ok(HandlerAction {
+            body: ResponseBody::SetBreakpoints(SetBreakpointsResponse {
+                breakpoints: set_bps,
+            }),
+            post_action: None,
+        })
     }
 
     pub(super) fn set_exception_breakpoints(
         &mut self,
         _args: &SetExceptionBreakpointsArguments,
-    ) -> Result<ResponseBody> {
-        Ok(ResponseBody::SetExceptionBreakpoints(
-            SetExceptionBreakpointsResponse {
+    ) -> HandlerResult {
+        Ok(HandlerAction {
+            body: ResponseBody::SetExceptionBreakpoints(SetExceptionBreakpointsResponse {
                 breakpoints: vec![].into(),
-            },
-        ))
+            }),
+            post_action: None,
+        })
     }
 
-    pub(super) const fn threads(&mut self) -> Result<ResponseBody> {
-        Ok(ResponseBody::Threads(ThreadsResponse { threads: vec![] }))
+    pub(super) const fn threads(&mut self) -> HandlerResult {
+        Ok(HandlerAction {
+            body: ResponseBody::Threads(ThreadsResponse { threads: vec![] }),
+            post_action: None,
+        })
     }
 
-    pub(super) fn disconnect(&mut self, _args: &DisconnectArguments) -> Result<ResponseBody> {
+    pub(super) fn disconnect(&mut self, _args: &DisconnectArguments) -> HandlerResult {
         self.target.stop().ok(); // Best effort to stop target, ignore errors since we're disconnecting anyway
-        Err(DebuggerError::DapDisconnected)
+
+        Ok(HandlerAction {
+            body: ResponseBody::Disconnect,
+            post_action: Some(Disconnect), // Signal to stop the event loop
+        })
     }
 }

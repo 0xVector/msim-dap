@@ -1,4 +1,5 @@
 use super::{DebuggerError, Result};
+use crate::adapter::Session;
 use crate::target::{DebugTarget, TargetError};
 use crate::{DebugEvent, DebugEventReceiver, adapter, msim};
 use dap::base_message::Sendable::{Event, Response};
@@ -8,6 +9,17 @@ pub struct Debugger<T: DebugTarget> {
     pub(super) receiver: DebugEventReceiver,
     pub(super) dap_session: adapter::Session,
     pub(super) target: T,
+}
+
+#[allow(clippy::large_enum_variant)]
+pub(super) enum PostAction {
+    SendEvent(dap::events::Event),
+    Disconnect,
+}
+
+pub(super) struct HandlerAction {
+    pub body: ResponseBody,
+    pub post_action: Option<PostAction>,
 }
 
 impl<T: DebugTarget> Debugger<T> {
@@ -51,14 +63,9 @@ impl<T: DebugTarget> Debugger<T> {
         match event {
             // Handle requests
             DebugEvent::DapRequest(req) => match self.handle_request(&req) {
-                Ok(body) => Ok(self.dap_session.send(Response(req.success(body)))?),
-
-                // Handle disconnect
-                Err(DebuggerError::DapDisconnected) => {
-                    // We need to send the response here as the handler Err'd
-                    self.dap_session
-                        .send(Response(req.success(ResponseBody::Disconnect)))?;
-                    Err(DebuggerError::DapDisconnected)
+                Ok(HandlerAction { body, post_action }) => {
+                    self.dap_session.send(Response(req.success(body)))?;
+                    post_action.map_or(Ok(()), |action| action.execute(&self.dap_session))
                 }
 
                 // Recoverable error, send error response
@@ -93,7 +100,7 @@ impl<T: DebugTarget> Debugger<T> {
         }
     }
 
-    fn handle_request(&mut self, req: &dap::requests::Request) -> Result<ResponseBody> {
+    fn handle_request(&mut self, req: &dap::requests::Request) -> Result<HandlerAction> {
         match &req.command {
             Command::Initialize(args) => self.initialize(args),
             Command::Attach(args) => self.attach(args),
@@ -113,6 +120,15 @@ impl<T: DebugTarget> Debugger<T> {
         match event {
             msim::Event::Exited => self.handle_event_exited(),
             msim::Event::StoppedAt(address) => self.handle_event_stopped_at(address),
+        }
+    }
+}
+
+impl PostAction {
+    fn execute(self, session: &Session) -> Result<()> {
+        match self {
+            Self::SendEvent(event) => Ok(session.send(Event(event))?),
+            Self::Disconnect => Err(DebuggerError::DapDisconnected),
         }
     }
 }

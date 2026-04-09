@@ -7,10 +7,10 @@ pub type Result<T> = std::result::Result<T, AdapterError>;
 
 #[derive(thiserror::Error, Debug)]
 pub enum AdapterError {
-    #[error("Server error")]
+    #[error("Server error: {0}")]
     Server(#[from] dap::errors::ServerError),
 
-    #[error("IO error")]
+    #[error("IO error: {0}")]
     Io(#[from] std::io::Error),
 
     #[error("Poisoned lock error")]

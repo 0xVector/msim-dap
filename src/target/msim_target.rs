@@ -1,6 +1,6 @@
 use super::{DebugTarget, Result, TargetError};
 use crate::dwarf::DwarfIndex;
-use crate::msim::{Connection, MSIMError, Request};
+use crate::msim::{Connection, MsimError, Request};
 use std::path::Path;
 
 pub struct MsimTarget<S: Connection> {
@@ -26,9 +26,9 @@ impl<S: Connection> DebugTarget for MsimTarget<S> {
         match self.connection.send(Request::Stop) {
             // We treat these errors as success
             Ok(_)
-            | Err(MSIMError::ListenerDied)
-            | Err(MSIMError::ClosedError)
-            | Err(MSIMError::IOError(_)) => Ok(()),
+            | Err(MsimError::ListenerDied | MsimError::ClosedError | MsimError::IOError(_)) => {
+                Ok(())
+            }
             Err(e) => Err(e.into()),
         }
     }
@@ -38,7 +38,7 @@ impl<S: Connection> DebugTarget for MsimTarget<S> {
             TargetError::AddressNotFound(source.to_string_lossy().into_owned(), line)
         })?;
 
-        eprint!("BP at {}:{line} -> [{address:#x}]", source.display());
+        eprintln!("BP at {}:{line} -> [{address:#x}]", source.display());
         Ok(self
             .connection
             .send(Request::SetCodeBreakpoint(address))?
@@ -46,11 +46,11 @@ impl<S: Connection> DebugTarget for MsimTarget<S> {
     }
 }
 
-impl From<MSIMError> for TargetError {
-    fn from(error: MSIMError) -> Self {
+impl From<MsimError> for TargetError {
+    fn from(error: MsimError) -> Self {
         // Default to SessionLost (fatal), only RequestFailed is recoverable
         match error {
-            MSIMError::RequestFailed => Self::RequestFailed,
+            MsimError::RequestFailed => Self::RequestFailed,
             _ => Self::SessionLost,
         }
     }

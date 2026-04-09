@@ -24,7 +24,7 @@ pub enum Error {
     Adapter(#[from] adapter::AdapterError),
 
     #[error("MSIM error: {0}")]
-    MSIM(#[from] msim::MSIMError),
+    Msim(#[from] msim::MsimError),
 
     #[error("Debugger error: {0}")]
     Debugger(#[from] debugger::DebuggerError),
@@ -46,7 +46,7 @@ pub enum Mode {
     Stdio,
 
     /// TCP DAP mode, with port number
-    TCP(Port),
+    Tcp(Port),
 }
 
 /// Adapter config
@@ -71,9 +71,9 @@ pub enum DebugEvent {
     MsimEvent(msim::Event),
 }
 type AnyError = Box<dyn std::error::Error + Send + Sync>;
-pub type DebugEventResult = std::result::Result<DebugEvent, AnyError>;
-pub type DebugEventSender = std::sync::mpsc::Sender<DebugEventResult>;
-pub type DebugEventReceiver = std::sync::mpsc::Receiver<DebugEventResult>;
+type DebugEventResult = std::result::Result<DebugEvent, AnyError>;
+type DebugEventSender = std::sync::mpsc::Sender<DebugEventResult>;
+type DebugEventReceiver = std::sync::mpsc::Receiver<DebugEventResult>;
 
 /// Run with config
 /// # Errors
@@ -87,7 +87,7 @@ pub fn run(config: &Config) -> Result<()> {
     eprintln!("Starting up DAP session...");
     let dap_session = match config.mode {
         Mode::Stdio => Session::session_from_stdio(tx.clone()),
-        Mode::TCP(port) => {
+        Mode::Tcp(port) => {
             let address = format!("127.0.0.1:{port}");
             eprintln!("Waiting for DAP connection on {address}");
             Session::session_from_tcp(address, tx.clone())?

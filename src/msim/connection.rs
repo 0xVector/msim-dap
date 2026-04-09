@@ -1,6 +1,6 @@
 use super::frame::{FrameError, Inbound, Request, ResponseStatus};
 use super::tcp::connect;
-use super::{Event, MSIMError, Result};
+use super::{Event, MsimError, Result};
 use crate::{DebugEvent, DebugEventSender};
 use std::net::TcpStream;
 
@@ -71,7 +71,7 @@ fn post_msim_background(
                 }
 
                 Err(e) => {
-                    event_tx.send(Err(MSIMError::from(e).into())).ok();
+                    event_tx.send(Err(MsimError::from(e).into())).ok();
                     break;
                 }
             }
@@ -80,14 +80,10 @@ fn post_msim_background(
 }
 
 impl RawResponse {
-    // pub fn is_ok(&self) -> bool {
-    //     self.status == ResponseStatus::Ok
-    // }
-
     pub const fn get_result(&self) -> Result<()> {
         match self.status {
             ResponseStatus::Ok => Ok(()),
-            ResponseStatus::Error => Err(MSIMError::RequestFailed),
+            ResponseStatus::Error => Err(MsimError::RequestFailed),
         }
     }
 }
@@ -95,16 +91,16 @@ impl RawResponse {
 impl Connection for TcpConnection {
     fn send(&mut self, request: Request) -> Result<RawResponse> {
         if self.resp_rx.try_recv().is_ok() {
-            return Err(MSIMError::UnexpectedMessage);
+            return Err(MsimError::UnexpectedMessage);
         }
 
         request.write(&mut self.stream)?;
 
-        self.resp_rx.recv().map_err(|_| MSIMError::ListenerDied)
+        self.resp_rx.recv().map_err(|_| MsimError::ListenerDied)
     }
 }
 
-impl From<FrameError> for MSIMError {
+impl From<FrameError> for MsimError {
     fn from(e: FrameError) -> Self {
         match e {
             FrameError::IO(io_e) => io_e.into(),

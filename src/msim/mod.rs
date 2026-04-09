@@ -10,10 +10,10 @@ use frame::ArgType;
 pub use connection::{Connection, TcpConnection};
 pub use frame::{EventKind, Request};
 
-pub type Result<T> = std::result::Result<T, MSIMError>;
+pub type Result<T> = std::result::Result<T, MsimError>;
 
 #[derive(thiserror::Error, Debug)]
-pub enum MSIMError {
+pub enum MsimError {
     #[error("IO error: {0}")]
     IOError(std::io::Error),
 
@@ -47,7 +47,7 @@ pub enum Event {
     StoppedAt(Address),
 }
 
-impl From<std::io::Error> for MSIMError {
+impl From<std::io::Error> for MsimError {
     fn from(e: std::io::Error) -> Self {
         match e.kind() {
             std::io::ErrorKind::UnexpectedEof => Self::ClosedError,

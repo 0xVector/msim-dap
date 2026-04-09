@@ -14,8 +14,7 @@ pub fn parse_dwarf(path: &Path) -> Result<DwarfIndex> {
     } else {
         gimli::RunTimeEndian::Big
     };
-    let builder =
-        parse_lines(&object, endian).map_err(|e| DwarfError::Parse(e.to_string()))?;
+    let builder = parse_lines(&object, endian).map_err(|e| DwarfError::Parse(e.to_string()))?;
 
     Ok(builder.build())
 }
@@ -64,7 +63,6 @@ fn parse_lines(
             while let Some((header, row)) = rows.next_row()? {
                 if row.end_sequence() {
                     // End of sequence indicates a possible gap in addresses.
-                    // println!("{:x} end-sequence", row.address());
                 } else {
                     // Determine the path. Real applications should cache this for performance.
                     let mut path = path::PathBuf::new();
@@ -93,7 +91,6 @@ fn parse_lines(
                         gimli::ColumnType::Column(column) => column.get(),
                     };
 
-                    // println!("{:x} {}:{}:{}", row.address(), path.display(), line, column);
                     builder.insert(row.address(), path, line);
                 }
             }

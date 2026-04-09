@@ -19,8 +19,8 @@ impl Session {
         Self { server_output }
     }
 
-    // TODO: unused
-    pub fn _session_from_io<R, W>(r: R, w: W, tx: DebugEventSender) -> Self
+    #[allow(unused)] // Maybe in the future, nice for parity with server_from_...
+    pub fn session_from_io<R, W>(r: R, w: W, tx: DebugEventSender) -> Self
     where
         R: Read + 'static + Send,
         W: Write + 'static + Send,

@@ -11,9 +11,9 @@ pub enum DwarfError {
     #[error("Parse error")]
     Parse(String),
 
-    #[error("Object lib error")]
+    #[error("Object lib error: {0}")]
     Object(#[from] object::Error),
 
-    #[error("IO error")]
+    #[error("IO error: {0}")]
     Io(#[from] std::io::Error),
 }

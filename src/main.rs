@@ -45,7 +45,7 @@ fn redirect_stderr() -> Result<()> {
     unsafe {
         if libc::dup2(file.as_raw_fd(), libc::STDERR_FILENO) == -1 {
             return Err(Box::new(std::io::Error::last_os_error()));
-        };
+        }
     }
     Ok(())
 }
@@ -60,7 +60,7 @@ fn main() -> Result<()> {
     let cwd = env::current_dir()?;
     eprintln!("Starting adapter in dir {}", cwd.display());
 
-    let mode = opts.dap_tcp_mode.map_or(Mode::Stdio, Mode::TCP);
+    let mode = opts.dap_tcp_mode.map_or(Mode::Stdio, Mode::Tcp);
 
     let config = Config {
         mode,

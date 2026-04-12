@@ -138,7 +138,7 @@ fn response_deserialize_ok() -> Result<()> {
 #[test]
 fn response_deserialize_error() -> Result<()> {
     let gold = Inbound::Response {
-        status: ResponseStatus::Error,
+        status: ResponseStatus::UnspecifiedError,
         arg0: 0,
         arg1: 0,
     };

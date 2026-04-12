@@ -173,8 +173,11 @@ pub enum ResponseStatus {
     /// Response indicating that the request was successful. `0x01`
     Ok = 0x01,
 
-    /// Response indicating that the request failed with an error. `0x02`
-    Error = 0x02,
+    /// Response indicating that the request failed with an unspecified error. `0x02`
+    UnspecifiedError = 0x02,
+
+    /// Response indicating that the request is not supported by this MSIM version. `0x03`
+    UnsupportedRequestError = 0x03,
 }
 
 /// Kinds of events that can be received from MSIM.
@@ -252,7 +255,8 @@ impl ResponseStatus {
     pub const fn read(status: u8) -> Result<Self> {
         match status {
             0x01 => Ok(Self::Ok),
-            0x02 => Ok(Self::Error),
+            0x02 => Ok(Self::UnspecifiedError),
+            0x03 => Ok(Self::UnsupportedRequestError),
             _ => Err(FrameError::Parsing),
         }
     }

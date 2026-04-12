@@ -83,7 +83,7 @@ impl RawResponse {
     pub const fn get_result(&self) -> Result<()> {
         match self.status {
             ResponseStatus::Ok => Ok(()),
-            ResponseStatus::Error => Err(MsimError::RequestFailed),
+            _ => Err(MsimError::RequestFailed), // Any error status
         }
     }
 }

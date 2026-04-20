@@ -1,7 +1,7 @@
 use super::{DebuggerError, Result};
 use crate::adapter::Session;
 use crate::target::{DebugTarget, TargetError};
-use crate::{DebugEvent, DebugEventReceiver, LineNo, msim};
+use crate::{Address, DebugEvent, DebugEventReceiver, LineNo, msim};
 use dap::base_message::Sendable::{Event, Response};
 use dap::prelude::{Command, ResponseBody};
 use std::collections::HashMap;
@@ -12,13 +12,14 @@ pub struct Debugger<T: DebugTarget> {
     pub(super) dap_session: Session,
     pub(super) target: T,
     pub(super) bp_registry: BpRegistry,
+    pub(super) last_stopped_at: Option<Address>,
 }
 
 pub type BpId = u32;
 
 pub struct BpRegistry {
     next_id: BpId,
-    ids: HashMap<(PathBuf, u64), BpId>,
+    ids: HashMap<(PathBuf, LineNo), BpId>,
 }
 
 #[allow(clippy::large_enum_variant)]
@@ -39,6 +40,7 @@ impl<T: DebugTarget> Debugger<T> {
             dap_session,
             target: msim_session,
             bp_registry: BpRegistry::new(),
+            last_stopped_at: None,
         }
     }
 
@@ -117,6 +119,8 @@ impl<T: DebugTarget> Debugger<T> {
             Command::SetExceptionBreakpoints(args) => self.set_exception_breakpoints(args),
             Command::Threads => self.threads(),
             Command::Disconnect(args) => self.disconnect(args),
+            Command::StackTrace(args) => self.stack_trace(args),
+            Command::Scopes(args) => self.scopes(args),
             _ => Err(DebuggerError::RequestFailed(
                 format!("Unhandled command: {:?}", req.command).into(),
             )),

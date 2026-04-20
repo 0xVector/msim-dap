@@ -1,10 +1,10 @@
+use crate::LineNo;
 use crate::dwarf::index::{DwarfIndex, DwarfIndexBuilder};
 use crate::dwarf::{DwarfError, Result};
 use object::{Object, ObjectSection};
 use std::path::Path;
-use std::{borrow, error, fs, path};
-
 use std::result::Result as StdResult;
+use std::{borrow, error, fs, path};
 
 pub fn parse_dwarf(path: &Path) -> Result<DwarfIndex> {
     let file = fs::read(path)?;
@@ -85,7 +85,7 @@ fn parse_lines(
 
                     // Determine line/column. DWARF line/column is never 0, so we use that
                     // but other applications may want to display this differently.
-                    let line = row.line().map_or(0, std::num::NonZero::get);
+                    let line: LineNo = row.line().map_or(0, std::num::NonZero::get).cast_signed();
                     let _column = match row.column() {
                         gimli::ColumnType::LeftEdge => 0,
                         gimli::ColumnType::Column(column) => column.get(),

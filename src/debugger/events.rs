@@ -24,24 +24,26 @@ impl<T: DebugTarget> Debugger<T> {
     }
 
     pub(super) fn handle_event_stopped_at(&mut self, address: Address) -> EventResult {
-        eprintln!("Stopped at address {address:#x}");
+        self.last_stopped_at = Some(address);
+
         let mut hits = vec![];
-        let mut message = format!("Stopped at {address:#x}");
-        if let Some((source, line)) = self.target.resolve_code_bp(address) {
+        let message = if let Some((source, line)) = self.target.resolve_code_bp(address) {
             hits.push(i64::from(self.bp_registry.get_id(source, line)));
-            message = format!(
+            format!(
                 "Stopped at {}:{line} (ID {:?})",
                 source.display(),
                 hits.last()
-            );
-            eprintln!("{message}");
-        }
+            )
+        } else {
+            format!("Stopped at {address:#x}")
+        };
+        eprintln!("{message}");
 
         Ok(Some(dap::events::Event::Stopped(
             dap::events::StoppedEventBody {
                 reason: dap::types::StoppedEventReason::Breakpoint,
                 description: Some(message),
-                thread_id: None,
+                thread_id: Some(1),
                 preserve_focus_hint: None,
                 text: None,
                 all_threads_stopped: None,

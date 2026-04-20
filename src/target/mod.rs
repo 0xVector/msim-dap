@@ -18,10 +18,10 @@ pub enum TargetError {
 
     // TODO: are the params even needed?
     #[error("Address not found for {0}:{1}")]
-    AddressNotFound(String, u64),
+    AddressNotFound(String, LineNo),
 
     #[error("Address {0} is out of range")]
-    AddressOutOfRange(u64),
+    AddressOutOfRange(Address),
 }
 
 pub trait DebugTarget {

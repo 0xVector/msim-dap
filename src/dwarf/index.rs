@@ -1,8 +1,6 @@
+use crate::{Address, LineNo};
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
-
-#[derive(Copy, Clone, Hash, Eq, PartialEq, Debug)]
-pub struct Address(u64);
 
 #[derive(Copy, Clone, Hash, Eq, PartialEq, Debug)]
 pub struct FileId(u32);
@@ -10,7 +8,7 @@ pub struct FileId(u32);
 #[derive(Copy, Clone, Hash, Eq, PartialEq, Debug)]
 struct LineKey {
     file: FileId,
-    line: u64,
+    line: LineNo,
 }
 
 pub struct DwarfIndexBuilder {
@@ -28,13 +26,13 @@ impl DwarfIndexBuilder {
         }
     }
 
-    pub fn insert(&mut self, address: u64, path: PathBuf, line: u64) {
+    pub fn insert(&mut self, address: Address, path: PathBuf, line: LineNo) {
         let id = *self.file_ids.entry(path).or_insert_with(|| {
             self.current_id = FileId(self.current_id.0 + 1);
             self.current_id
         });
         self.line_to_address
-            .insert(LineKey { file: id, line }, Address(address));
+            .insert(LineKey { file: id, line }, address);
     }
 
     pub fn build(self) -> DwarfIndex {
@@ -51,13 +49,10 @@ pub struct DwarfIndex {
 }
 
 impl DwarfIndex {
-    pub fn get_address(&self, file_path: &Path, line: u64) -> Option<u64> {
+    pub fn get_address(&self, file_path: &Path, line: LineNo) -> Option<Address> {
         let id = *self.file_ids.get(file_path)?;
-        Some(
-            self.line_to_address
-                .get(&LineKey { file: id, line })
-                .copied()?
-                .0,
-        )
+        self.line_to_address
+            .get(&LineKey { file: id, line })
+            .copied()
     }
 }

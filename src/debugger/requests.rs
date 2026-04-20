@@ -4,10 +4,13 @@ use crate::target::{DebugTarget, TargetError};
 use dap::prelude::ResponseBody;
 use dap::requests::{
     AttachRequestArguments, DisconnectArguments, InitializeArguments, LaunchRequestArguments,
-    SetBreakpointsArguments, SetExceptionBreakpointsArguments,
+    ScopesArguments, SetBreakpointsArguments, SetExceptionBreakpointsArguments,
+    StackTraceArguments,
 };
-use dap::responses::{SetBreakpointsResponse, SetExceptionBreakpointsResponse, ThreadsResponse};
-use dap::types::{Breakpoint, Capabilities};
+use dap::responses::{
+    SetBreakpointsResponse, SetExceptionBreakpointsResponse, StackTraceResponse, ThreadsResponse,
+};
+use dap::types::{Breakpoint, Capabilities, Source, StackFrame, Thread};
 use std::iter::zip;
 use std::path::Path;
 
@@ -77,19 +80,14 @@ impl<T: DebugTarget> Debugger<T> {
 
         let results = self.target.replace_code_bps(
             Path::new(path),
-            &bps.iter()
-                .map(|bp| bp.line.cast_unsigned())
-                .collect::<Vec<_>>(),
+            &bps.iter().map(|bp| bp.line).collect::<Vec<_>>(),
         );
 
         for (bp, result) in zip(bps, results) {
             let mut bp_info = Breakpoint {
-                id: result.is_ok().then(|| {
-                    i64::from(
-                        self.bp_registry
-                            .get_id(Path::new(path), bp.line.cast_unsigned()),
-                    )
-                }),
+                id: result
+                    .is_ok()
+                    .then(|| i64::from(self.bp_registry.get_id(Path::new(path), bp.line))),
                 verified: result.is_ok(),
                 message: None,
                 source: None,
@@ -155,9 +153,14 @@ impl<T: DebugTarget> Debugger<T> {
         })
     }
 
-    pub(super) const fn threads(&mut self) -> HandlerResult {
+    pub(super) fn threads(&mut self) -> HandlerResult {
         Ok(HandlerAction {
-            body: ResponseBody::Threads(ThreadsResponse { threads: vec![] }),
+            body: ResponseBody::Threads(ThreadsResponse {
+                threads: vec![Thread {
+                    id: 1,
+                    name: "main".into(),
+                }],
+            }),
             post_action: None,
         })
     }
@@ -168,6 +171,46 @@ impl<T: DebugTarget> Debugger<T> {
         Ok(HandlerAction {
             body: ResponseBody::Disconnect,
             post_action: Some(Disconnect), // Signal to stop the event loop
+        })
+    }
+
+    pub(super) fn stack_trace(&mut self, _args: &StackTraceArguments) -> HandlerResult {
+        let (path, line) = self
+            .last_stopped_at
+            .and_then(|addr| self.target.resolve_code_bp(addr))
+            .map_or((None, 0), |(path, line)| {
+                (Some(path.to_string_lossy().into_owned()), line)
+            });
+        eprintln!(
+            "Stack trace requested, last stopped at: {:?} ({}:{})",
+            self.last_stopped_at,
+            path.as_deref().unwrap_or("<unknown>"),
+            line
+        );
+
+        Ok(HandlerAction {
+            body: ResponseBody::StackTrace(StackTraceResponse {
+                stack_frames: vec![StackFrame {
+                    id: 0,
+                    name: "main".into(),
+                    source: Some(Source {
+                        path,
+                        ..Default::default()
+                    }),
+                    line,
+                    column: 0,
+                    ..Default::default()
+                }],
+                total_frames: Some(1),
+            }),
+            post_action: None,
+        })
+    }
+
+    pub(super) const fn scopes(&mut self, _args: &ScopesArguments) -> HandlerResult {
+        Ok(HandlerAction {
+            body: ResponseBody::Scopes(dap::responses::ScopesResponse { scopes: vec![] }),
+            post_action: None,
         })
     }
 }

@@ -1,8 +1,10 @@
+use crate::{Address, LineNo};
 use std::path::Path;
 
 mod msim_target;
 
 pub use msim_target::MsimTarget;
+
 pub type Result<T> = std::result::Result<T, TargetError>;
 
 #[derive(thiserror::Error, Debug)]
@@ -25,5 +27,6 @@ pub enum TargetError {
 pub trait DebugTarget {
     fn resume(&mut self) -> Result<()>;
     fn stop(&mut self) -> Result<()>;
-    fn set_breakpoint(&mut self, source: &Path, line: u64) -> Result<()>;
+    fn replace_code_bps(&mut self, source: &Path, lines: &[LineNo]) -> Vec<Result<()>>;
+    fn resolve_code_bp(&self, address: Address) -> Option<(&Path, LineNo)>;
 }

@@ -24,15 +24,28 @@ impl<T: DebugTarget> Debugger<T> {
     }
 
     pub(super) fn handle_event_stopped_at(&mut self, address: Address) -> EventResult {
+        eprintln!("Stopped at address {address:#x}");
+        let mut hits = vec![];
+        let mut message = format!("Stopped at {address:#x}");
+        if let Some((source, line)) = self.target.resolve_code_bp(address) {
+            hits.push(i64::from(self.bp_registry.get_id(source, line)));
+            message = format!(
+                "Stopped at {}:{line} (ID {:?})",
+                source.display(),
+                hits.last()
+            );
+            eprintln!("{message}");
+        }
+
         Ok(Some(dap::events::Event::Stopped(
             dap::events::StoppedEventBody {
                 reason: dap::types::StoppedEventReason::Breakpoint,
-                description: Some(format!("Stopped at address {address:#x} due to breakpoint")),
+                description: Some(message),
                 thread_id: None,
                 preserve_focus_hint: None,
                 text: None,
                 all_threads_stopped: None,
-                hit_breakpoint_ids: None, // TODO: track this
+                hit_breakpoint_ids: (!hits.is_empty()).then_some(hits),
             },
         )))
     }

@@ -1,14 +1,24 @@
 use super::{DebuggerError, Result};
 use crate::adapter::Session;
 use crate::target::{DebugTarget, TargetError};
-use crate::{DebugEvent, DebugEventReceiver, adapter, msim};
+use crate::{DebugEvent, DebugEventReceiver, LineNo, msim};
 use dap::base_message::Sendable::{Event, Response};
 use dap::prelude::{Command, ResponseBody};
+use std::collections::HashMap;
+use std::path::{Path, PathBuf};
 
 pub struct Debugger<T: DebugTarget> {
     pub(super) receiver: DebugEventReceiver,
-    pub(super) dap_session: adapter::Session,
+    pub(super) dap_session: Session,
     pub(super) target: T,
+    pub(super) bp_registry: BpRegistry,
+}
+
+pub type BpId = u32;
+
+pub struct BpRegistry {
+    next_id: BpId,
+    ids: HashMap<(PathBuf, u64), BpId>,
 }
 
 #[allow(clippy::large_enum_variant)]
@@ -23,15 +33,12 @@ pub(super) struct HandlerAction {
 }
 
 impl<T: DebugTarget> Debugger<T> {
-    pub fn new(
-        receiver: DebugEventReceiver,
-        dap_session: adapter::Session,
-        msim_session: T,
-    ) -> Self {
+    pub fn new(receiver: DebugEventReceiver, dap_session: Session, msim_session: T) -> Self {
         Self {
             receiver,
             dap_session,
             target: msim_session,
+            bp_registry: BpRegistry::new(),
         }
     }
 
@@ -121,6 +128,26 @@ impl<T: DebugTarget> Debugger<T> {
             msim::Event::Exited => self.handle_event_exited(),
             msim::Event::StoppedAt(address) => self.handle_event_stopped_at(address),
         }
+    }
+}
+
+impl BpRegistry {
+    pub fn new() -> Self {
+        Self {
+            next_id: 0,
+            ids: HashMap::default(),
+        }
+    }
+
+    pub fn get_id(&mut self, path: &Path, line: LineNo) -> BpId {
+        *self
+            .ids
+            .entry((path.to_path_buf(), line))
+            .or_insert_with(|| {
+                let id = self.next_id;
+                self.next_id += 1;
+                id
+            })
     }
 }
 

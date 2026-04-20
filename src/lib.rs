@@ -36,6 +36,9 @@ pub type Result<T> = std::result::Result<T, Error>;
 /// Address type (64-bit)
 pub type Address = u64;
 
+/// Line number type
+pub type LineNo = u64;
+
 /// Port number
 type Port = u16;
 

@@ -26,6 +26,7 @@
 - Next
 - Restart, Terminate - should add MSIM support too
 - Threads
+- run in terminal launch MSIM (have to add to dap-rs - PR)
 
 ### Moonshots
 - Variables

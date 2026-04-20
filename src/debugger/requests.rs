@@ -8,6 +8,7 @@ use dap::requests::{
 };
 use dap::responses::{SetBreakpointsResponse, SetExceptionBreakpointsResponse, ThreadsResponse};
 use dap::types::{Breakpoint, Capabilities};
+use std::iter::zip;
 use std::path::Path;
 
 type HandlerResult = Result<HandlerAction>;
@@ -28,7 +29,8 @@ impl<T: DebugTarget> Debugger<T> {
         Ok(HandlerAction {
             body: ResponseBody::Initialize(Capabilities {
                 supports_configuration_done_request: Some(true),
-                ..Default::default() // No extra capabilities advertised
+                supports_restart_request: Some(true), // TODO: implement restart request
+                ..Default::default()                  // No extra capabilities advertised
             }),
             post_action: Some(PostAction::SendEvent(dap::events::Event::Initialized)),
         })
@@ -68,16 +70,27 @@ impl<T: DebugTarget> Debugger<T> {
             .ok_or(DebuggerError::RequestFailed(
                 "Source path is required for breakpoints".into(),
             ))?;
-        eprintln!("Path: {path}");
 
         let bps = args.breakpoints.as_deref().unwrap_or(&[]);
-
         let mut set_bps = Vec::new();
+        eprintln!("Setting {} BPs for file: {path}", bps.len());
 
-        for bp in bps {
+        let results = self.target.replace_code_bps(
+            Path::new(path),
+            &bps.iter()
+                .map(|bp| bp.line.cast_unsigned())
+                .collect::<Vec<_>>(),
+        );
+
+        for (bp, result) in zip(bps, results) {
             let mut bp_info = Breakpoint {
-                id: None,
-                verified: false,
+                id: result.is_ok().then(|| {
+                    i64::from(
+                        self.bp_registry
+                            .get_id(Path::new(path), bp.line.cast_unsigned()),
+                    )
+                }),
+                verified: result.is_ok(),
                 message: None,
                 source: None,
                 line: Some(bp.line),
@@ -88,12 +101,9 @@ impl<T: DebugTarget> Debugger<T> {
                 offset: None,
             };
 
-            let res = self
-                .target
-                .set_breakpoint(Path::new(&path), bp.line.cast_unsigned());
-            match res {
+            match result {
                 Ok(()) => {
-                    bp_info.verified = true;
+                    eprintln!("Set BP at {path}:{} (ID {:?})", bp.line, bp_info.id);
                 }
 
                 Err(e) => match e {
@@ -109,8 +119,8 @@ impl<T: DebugTarget> Debugger<T> {
                         bp_info.message = Some(msg);
                     }
 
-                    TargetError::AddressNotFound(path, line) => {
-                        let msg = format!("Address not found for {path}:{line}");
+                    TargetError::AddressNotFound(p, line) => {
+                        let msg = format!("Address not found for {p}:{line}");
                         eprintln!("{msg}");
                         bp_info.message = Some(msg);
                     }

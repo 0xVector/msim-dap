@@ -3,9 +3,9 @@ use super::{Debugger, DebuggerError, Result};
 use crate::target::{DebugTarget, TargetError};
 use dap::prelude::ResponseBody;
 use dap::requests::{
-    AttachRequestArguments, DisconnectArguments, InitializeArguments, LaunchRequestArguments,
-    ScopesArguments, SetBreakpointsArguments, SetExceptionBreakpointsArguments,
-    StackTraceArguments,
+    AttachRequestArguments, ContinueArguments, DisconnectArguments, InitializeArguments,
+    LaunchRequestArguments, ScopesArguments, SetBreakpointsArguments,
+    SetExceptionBreakpointsArguments, StackTraceArguments,
 };
 use dap::responses::{
     SetBreakpointsResponse, SetExceptionBreakpointsResponse, StackTraceResponse, ThreadsResponse,
@@ -210,6 +210,14 @@ impl<T: DebugTarget> Debugger<T> {
     pub(super) const fn scopes(&mut self, _args: &ScopesArguments) -> HandlerResult {
         Ok(HandlerAction {
             body: ResponseBody::Scopes(dap::responses::ScopesResponse { scopes: vec![] }),
+            post_action: None,
+        })
+    }
+
+    pub(super) fn resume(&mut self, _args: &ContinueArguments) -> HandlerResult {
+        self.target.resume()?;
+        Ok(HandlerAction {
+            body: ResponseBody::Continue(dap::responses::ContinueResponse::default()),
             post_action: None,
         })
     }

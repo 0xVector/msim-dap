@@ -1,7 +1,9 @@
 use super::{Debugger, Result};
 use crate::Address;
+use crate::msim::StoppedAtReason;
 use crate::target::DebugTarget;
 use dap::base_message::Sendable;
+use dap::types::StoppedEventReason;
 
 type EventResult = Result<Option<dap::events::Event>>;
 
@@ -23,30 +25,45 @@ impl<T: DebugTarget> Debugger<T> {
         )))
     }
 
-    pub(super) fn handle_event_stopped_at(&mut self, address: Address) -> EventResult {
+    pub(super) fn handle_event_stopped_at(
+        &mut self,
+        address: Address,
+        reason: StoppedAtReason,
+    ) -> EventResult {
         self.last_stopped_at = Some(address);
-
         let mut hits = vec![];
-        let message = if let Some((source, line)) = self.target.resolve_code_bp(address) {
-            hits.push(i64::from(self.bp_registry.get_id(source, line)));
-            format!(
-                "Stopped at {}:{line} (ID {:?})",
-                source.display(),
-                hits.last()
-            )
-        } else {
-            format!("Stopped at {address:#x}")
+
+        let source_desc = match self.target.resolve_address(address) {
+            Some((path, line)) => {
+                format!("{}:{line}", path.display())
+            }
+            None => "unknown file".to_string(),
+        };
+        let mut message = format!("Stopped at {address:#x} ({source_desc}) due to {reason:?}");
+
+        let reason = match reason {
+            StoppedAtReason::Paused => StoppedEventReason::Pause,
+            StoppedAtReason::Breakpoint => {
+                if let Some((path, line)) = self.target.resolve_code_bp(address) {
+                    let id = i64::from(self.bp_registry.get_id(path, line));
+                    hits.push(id);
+                    message = format!("{message} (hit BP {id})");
+                }
+                StoppedEventReason::Breakpoint
+            }
+            StoppedAtReason::StepComplete => StoppedEventReason::Step,
+            StoppedAtReason::Interrupt => StoppedEventReason::Exception,
         };
         eprintln!("{message}");
 
         Ok(Some(dap::events::Event::Stopped(
             dap::events::StoppedEventBody {
-                reason: dap::types::StoppedEventReason::Breakpoint,
+                reason,
                 description: Some(message),
-                thread_id: Some(1),
+                thread_id: Some(1), // TODO: track (CPU ID)
                 preserve_focus_hint: None,
                 text: None,
-                all_threads_stopped: None,
+                all_threads_stopped: Some(true),
                 hit_breakpoint_ids: (!hits.is_empty()).then_some(hits),
             },
         )))

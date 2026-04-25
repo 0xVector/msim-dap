@@ -2,7 +2,7 @@ use super::{DebugTarget, Result, TargetError};
 use crate::dwarf::DwarfIndex;
 use crate::msim::{Connection, MsimError, Request};
 use crate::{Address, LineNo};
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 
 pub struct MsimTarget<S: Connection> {
@@ -13,8 +13,8 @@ pub struct MsimTarget<S: Connection> {
 
 #[derive(Default)]
 struct BpStore {
-    by_file: HashMap<PathBuf, Vec<(LineNo, Address)>>,
-    by_address: HashMap<Address, (PathBuf, LineNo)>,
+    bps_per_file: HashMap<PathBuf, Vec<(LineNo, Address)>>,
+    bps_addresses: HashSet<Address>,
 }
 
 impl<S: Connection> MsimTarget<S> {
@@ -32,6 +32,10 @@ impl<S: Connection> DebugTarget for MsimTarget<S> {
         Ok(self.connection.send(Request::Resume)?.get_result()?)
     }
 
+    fn pause(&mut self) -> Result<()> {
+        Ok(self.connection.send(Request::Pause)?.get_result()?)
+    }
+
     fn stop(&mut self) -> Result<()> {
         match self.connection.send(Request::Stop) {
             // We treat these errors as success
@@ -46,7 +50,7 @@ impl<S: Connection> DebugTarget for MsimTarget<S> {
     fn replace_code_bps(&mut self, source: &Path, lines: &[LineNo]) -> Vec<Result<()>> {
         let old_by_file: HashMap<LineNo, Address> = self
             .bp_store
-            .by_file
+            .bps_per_file
             .remove(source)
             .unwrap_or_default()
             .into_iter()
@@ -54,7 +58,7 @@ impl<S: Connection> DebugTarget for MsimTarget<S> {
 
         for (&line, &addr) in &old_by_file {
             if !lines.contains(&line) {
-                self.bp_store.by_address.remove(&addr);
+                self.bp_store.bps_addresses.remove(&addr);
                 let _ = self.connection.send(Request::RemoveCodeBreakpoint(addr));
             }
         }
@@ -76,9 +80,7 @@ impl<S: Connection> DebugTarget for MsimTarget<S> {
                 self.connection
                     .send(Request::SetCodeBreakpoint(addr))?
                     .get_result()?;
-                self.bp_store
-                    .by_address
-                    .insert(addr, (source.to_path_buf(), line));
+                self.bp_store.bps_addresses.insert(addr);
                 new_by_file.push((line, addr));
                 Ok(())
             })();
@@ -91,17 +93,22 @@ impl<S: Connection> DebugTarget for MsimTarget<S> {
 
         if !new_by_file.is_empty() {
             self.bp_store
-                .by_file
+                .bps_per_file
                 .insert(source.to_path_buf(), new_by_file);
         }
         results
     }
 
     fn resolve_code_bp(&self, address: Address) -> Option<(&Path, LineNo)> {
-        self.bp_store
-            .by_address
-            .get(&address)
-            .map(|(path, line)| (path.as_path(), *line))
+        if self.bp_store.bps_addresses.contains(&address) {
+            self.index.resolve_address(address)
+        } else {
+            None
+        }
+    }
+
+    fn resolve_address(&self, address: Address) -> Option<(&Path, LineNo)> {
+        self.index.resolve_address(address)
     }
 }
 

@@ -43,6 +43,8 @@ pub type InterruptId = u64;
 pub type MemoryWriteData = u64;
 /// Generic argument type used in all requests, responses and events (arg0 and arg1). Always `8 B`.
 pub type ArgType = u64;
+pub type StatusType = u8;
+pub type EventKindType = u8;
 
 /// Types of requests that can be sent to MSIM.
 /// The request type is determined by the first byte of the frame and is the same as the rust
@@ -189,9 +191,22 @@ pub enum EventKind {
     /// Event indicating that the simulator has exited. `0x01`
     Exited = 0x01,
 
-    // TODO: add reason to differentiate BPs etc
-    /// Event indicating that the simulator has stopped at `arg0=address`. `0x02`
+    /// Event indicating that the simulator has stopped at `arg0=address` due to `arg1=reason`. `0x02`
     StoppedAt = 0x02,
+}
+
+/// Reasons for stopping at an address, used in the [`EventKind::StoppedAt`] variant.
+#[repr(u8)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum StoppedAtReason {
+    /// Reason indicating that the simulator is paused due to a pause request. `0x01`
+    Paused = 0x01,
+    /// Reason indicating that the simulator is paused due to hitting a breakpoint. `0x02`
+    Breakpoint = 0x02,
+    /// Reason indicating that the simulator is paused due to completing a step request. `0x03`
+    StepComplete = 0x03,
+    /// Reason indicating that the simulator is paused due to an interrupt. `0x04`
+    Interrupt = 0x04,
 }
 
 impl Request {
@@ -252,7 +267,7 @@ impl Inbound {
 }
 impl ResponseStatus {
     /// Read a [`ResponseStatus`] from the given reader.
-    pub const fn read(status: u8) -> Result<Self> {
+    pub const fn read(status: StatusType) -> Result<Self> {
         match status {
             0x01 => Ok(Self::Ok),
             0x02 => Ok(Self::UnspecifiedError),
@@ -263,12 +278,26 @@ impl ResponseStatus {
 }
 
 impl EventKind {
-    /// Read an [`EventKind`] from the given reader.
-    pub const fn read(kind: u8) -> Result<Self> {
+    /// Read an [`EventKind`] from the given input.
+    pub const fn read(kind: EventKindType) -> Result<Self> {
         match kind {
             0x01 => Ok(Self::Exited),
             0x02 => Ok(Self::StoppedAt),
             _ => Err(FrameError::Parsing),
         }
     }
+}
+
+impl StoppedAtReason {
+    /// Read a [`StoppedAtReason`] from the given input.
+    pub const fn read(reason: ArgType) -> Result<Self> {
+        match reason {
+            0x01 => Ok(Self::Paused),
+            0x02 => Ok(Self::Breakpoint),
+            0x03 => Ok(Self::StepComplete),
+            0x04 => Ok(Self::Interrupt),
+            _ => Err(FrameError::Parsing),
+        }
+    }
+
 }

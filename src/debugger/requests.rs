@@ -4,7 +4,7 @@ use crate::target::{DebugTarget, TargetError};
 use dap::prelude::ResponseBody;
 use dap::requests::{
     AttachRequestArguments, ContinueArguments, DisconnectArguments, InitializeArguments,
-    LaunchRequestArguments, ScopesArguments, SetBreakpointsArguments,
+    LaunchRequestArguments, PauseArguments, ScopesArguments, SetBreakpointsArguments,
     SetExceptionBreakpointsArguments, StackTraceArguments,
 };
 use dap::responses::{
@@ -177,13 +177,14 @@ impl<T: DebugTarget> Debugger<T> {
     pub(super) fn stack_trace(&mut self, _args: &StackTraceArguments) -> HandlerResult {
         let (path, line) = self
             .last_stopped_at
-            .and_then(|addr| self.target.resolve_code_bp(addr))
+            .and_then(|addr| self.target.resolve_address(addr))
             .map_or((None, 0), |(path, line)| {
                 (Some(path.to_string_lossy().into_owned()), line)
             });
         eprintln!(
-            "Stack trace requested, last stopped at: {:?} ({}:{})",
-            self.last_stopped_at,
+            "Stack trace requested, last stopped at: {} ({}:{})",
+            self.last_stopped_at
+                .map_or_else(|| "<unknown>".into(), |a| format!("{a:#x}")),
             path.as_deref().unwrap_or("<unknown>"),
             line
         );
@@ -218,6 +219,14 @@ impl<T: DebugTarget> Debugger<T> {
         self.target.resume()?;
         Ok(HandlerAction {
             body: ResponseBody::Continue(dap::responses::ContinueResponse::default()),
+            post_action: None,
+        })
+    }
+
+    pub(super) fn pause(&mut self, _args: &PauseArguments) -> HandlerResult {
+        self.target.pause()?;
+        Ok(HandlerAction {
+            body: ResponseBody::Pause,
             post_action: None,
         })
     }

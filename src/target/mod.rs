@@ -26,7 +26,9 @@ pub enum TargetError {
 
 pub trait DebugTarget {
     fn resume(&mut self) -> Result<()>;
+    fn pause(&mut self) -> Result<()>;
     fn stop(&mut self) -> Result<()>;
     fn replace_code_bps(&mut self, source: &Path, lines: &[LineNo]) -> Vec<Result<()>>;
     fn resolve_code_bp(&self, address: Address) -> Option<(&Path, LineNo)>;
+    fn resolve_address(&self, address: Address) -> Option<(&Path, LineNo)>;
 }

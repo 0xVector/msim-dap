@@ -8,7 +8,7 @@ use crate::Address;
 use frame::ArgType;
 
 pub use connection::{Connection, TcpConnection};
-pub use frame::{EventKind, Request};
+pub use frame::{EventKind, Request, StoppedAtReason};
 
 pub type Result<T> = std::result::Result<T, MsimError>;
 
@@ -44,7 +44,7 @@ pub enum MsimError {
 #[derive(Copy, Clone)]
 pub enum Event {
     Exited,
-    StoppedAt(Address),
+    StoppedAt(Address, StoppedAtReason),
 }
 
 impl From<std::io::Error> for MsimError {
@@ -57,10 +57,10 @@ impl From<std::io::Error> for MsimError {
 }
 
 impl Event {
-    pub const fn from_raw(kind: EventKind, arg0: ArgType, _arg1: ArgType) -> Self {
+    pub fn from_raw(kind: EventKind, arg0: ArgType, arg1: ArgType) -> frame::Result<Self> {
         match kind {
-            EventKind::Exited => Self::Exited,
-            EventKind::StoppedAt => Self::StoppedAt(arg0),
+            EventKind::Exited => Ok(Self::Exited),
+            EventKind::StoppedAt => Ok(Self::StoppedAt(arg0, StoppedAtReason::read(arg1)?)),
         }
     }
 }

@@ -47,7 +47,7 @@ impl<T: DebugTarget> Debugger<T> {
     pub fn run(&mut self) -> Result<()> {
         loop {
             match self.receiver.recv() {
-                Ok(Ok(debug_event)) => match self.handle_event(debug_event) {
+                Ok(Ok(debug_event)) => match self.handle(debug_event) {
                     Err(DebuggerError::DapDisconnected) => return Ok(()),
                     other => other?,
                 },
@@ -68,10 +68,10 @@ impl<T: DebugTarget> Debugger<T> {
 
     // FatalError should not be passed to this function
     // All errors returned are fatal
-    fn handle_event(&mut self, event: DebugEvent) -> Result<()> {
+    fn handle(&mut self, event: DebugEvent) -> Result<()> {
         match event {
             // Handle requests
-            DebugEvent::DapRequest(req) => match self.handle_request(&req) {
+            DebugEvent::DapRequest(req) => match self.handle_dap_request(&req) {
                 Ok(HandlerAction { body, post_action }) => {
                     self.dap_session.send(Response(req.success(body)))?;
                     post_action.map_or(Ok(()), |action| action.execute(&self.dap_session))
@@ -109,7 +109,7 @@ impl<T: DebugTarget> Debugger<T> {
         }
     }
 
-    fn handle_request(&mut self, req: &dap::requests::Request) -> Result<HandlerAction> {
+    fn handle_dap_request(&mut self, req: &dap::requests::Request) -> Result<HandlerAction> {
         match &req.command {
             Command::Initialize(args) => self.initialize(args),
             Command::Attach(args) => self.attach(args),
@@ -122,6 +122,7 @@ impl<T: DebugTarget> Debugger<T> {
             Command::StackTrace(args) => self.stack_trace(args),
             Command::Scopes(args) => self.scopes(args),
             Command::Continue(args) => self.resume(args),
+            Command::Pause(args) => self.pause(args),
             _ => Err(DebuggerError::RequestFailed(
                 format!("Unhandled command: {:?}", req.command).into(),
             )),
@@ -131,7 +132,9 @@ impl<T: DebugTarget> Debugger<T> {
     fn handle_msim_event(&mut self, event: msim::Event) -> Result<Option<dap::events::Event>> {
         match event {
             msim::Event::Exited => self.handle_event_exited(),
-            msim::Event::StoppedAt(address) => self.handle_event_stopped_at(address),
+            msim::Event::StoppedAt(address, reason) => {
+                self.handle_event_stopped_at(address, reason)
+            }
         }
     }
 }

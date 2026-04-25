@@ -56,10 +56,11 @@ fn post_msim_background(
 
                     // Events go to the main event channel
                     Inbound::Event { kind, arg0, arg1 } => {
-                        if event_tx
-                            .send(Ok(DebugEvent::MsimEvent(Event::from_raw(kind, arg0, arg1))))
-                            .is_err()
-                        {
+                        let (msg, fatal) = match Event::from_raw(kind, arg0, arg1) {
+                            Ok(event) => (Ok(DebugEvent::MsimEvent(event)), false),
+                            Err(e) => (Err(MsimError::from(e).into()), true),
+                        };
+                        if event_tx.send(msg).is_err() || fatal {
                             break;
                         }
                     }

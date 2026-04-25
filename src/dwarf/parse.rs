@@ -91,7 +91,9 @@ fn parse_lines(
                         gimli::ColumnType::Column(column) => column.get(),
                     };
 
-                    builder.insert(row.address(), path, line);
+                    if !row.end_sequence() && row.is_stmt() {
+                        builder.insert(row.address(), path, line);
+                    }
                 }
             }
         }

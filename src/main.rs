@@ -9,7 +9,7 @@ type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
 #[derive(Parser, Debug)]
 #[command(name = "adapter")]
 struct Opts {
-    /// Use the DAP side in TCP mode (default is stdio), with optional port number to use \[default: 10506]
+    /// Use the DAP side in TCP mode (default is stdio), with optional port number to use [default: 10506]
     #[arg(short = 'd', long, num_args(0..=1), default_missing_value = "10506", value_name = "PORT")]
     dap_tcp_mode: Option<u16>,
 

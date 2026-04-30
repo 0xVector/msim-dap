@@ -32,8 +32,7 @@ impl<T: DebugTarget> Debugger<T> {
         Ok(HandlerAction {
             body: ResponseBody::Initialize(Capabilities {
                 supports_configuration_done_request: Some(true),
-                supports_restart_request: Some(true), // TODO: implement restart request
-                ..Default::default()                  // No extra capabilities advertised
+                ..Default::default() // No extra capabilities advertised
             }),
             post_action: Some(PostAction::SendEvent(dap::events::Event::Initialized)),
         })

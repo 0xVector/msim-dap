@@ -9,6 +9,7 @@ pub struct MsimTarget<S: Connection> {
     connection: S,
     index: DwarfIndex,
     bp_store: BpStore,
+    config: Option<Config>,
 }
 
 #[derive(Default)]
@@ -17,17 +18,35 @@ struct BpStore {
     bps_addresses: HashSet<Address>,
 }
 
+struct Config {
+    cpu_count: u64,
+}
+
 impl<S: Connection> MsimTarget<S> {
     pub fn new(session: S, index: DwarfIndex) -> Self {
         Self {
             connection: session,
             index,
             bp_store: BpStore::default(),
+            config: None,
         }
     }
 }
 
 impl<S: Connection> DebugTarget for MsimTarget<S> {
+    fn cpu_count(&mut self) -> Result<u64> {
+        let config = if let Some(c) = &self.config {
+            c
+        } else {
+            let response = self.connection.send(Request::GetConfig)?;
+            self.config.insert(Config {
+                cpu_count: response.arg0,
+            })
+        };
+
+        Ok(config.cpu_count)
+    }
+
     fn resume(&mut self) -> Result<()> {
         Ok(self.connection.send(Request::Resume)?.get_result()?)
     }

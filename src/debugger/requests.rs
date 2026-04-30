@@ -1,10 +1,15 @@
 use super::core::{HandlerAction, PostAction, PostAction::Disconnect};
 use super::{Debugger, DebuggerError, Result};
-use crate::LineNo;
 use crate::debugger::DebuggerError::RequestFailed;
 use crate::target::{DebugTarget, TargetError};
+use crate::LineNo;
 use dap::prelude::ResponseBody;
-use dap::requests::{AttachRequestArguments, ContinueArguments, DisconnectArguments, InitializeArguments, LaunchRequestArguments, NextArguments, PauseArguments, ScopesArguments, SetBreakpointsArguments, SetExceptionBreakpointsArguments, StackTraceArguments, StepInArguments};
+use dap::requests::{
+    AttachRequestArguments, ContinueArguments, DisconnectArguments, InitializeArguments,
+    LaunchRequestArguments, NextArguments, PauseArguments, ScopesArguments,
+    SetBreakpointsArguments, SetExceptionBreakpointsArguments, StackTraceArguments,
+    StepInArguments,
+};
 use dap::responses::{
     SetBreakpointsResponse, SetExceptionBreakpointsResponse, StackTraceResponse, ThreadsResponse,
 };
@@ -154,12 +159,16 @@ impl<T: DebugTarget> Debugger<T> {
     }
 
     pub(super) fn threads(&mut self) -> HandlerResult {
+        let cpu_count = self.target.cpu_count().unwrap_or(1).cast_signed();
+
         Ok(HandlerAction {
             body: ResponseBody::Threads(ThreadsResponse {
-                threads: vec![Thread {
-                    id: 1,
-                    name: "main".into(),
-                }],
+                threads: (0..cpu_count)
+                    .map(|i| Thread {
+                        id: i + 1,
+                        name: format!("CPU {i}"),
+                    })
+                    .collect(),
             }),
             post_action: None,
         })
@@ -174,7 +183,7 @@ impl<T: DebugTarget> Debugger<T> {
         })
     }
 
-    pub(super) fn stack_trace(&mut self, _args: &StackTraceArguments) -> HandlerResult {
+    pub(super) fn stack_trace(&mut self, args: &StackTraceArguments) -> HandlerResult {
         let (path, line) = self
             .last_stopped_at
             .and_then(|addr| self.target.resolve_address(addr))
@@ -192,8 +201,8 @@ impl<T: DebugTarget> Debugger<T> {
         Ok(HandlerAction {
             body: ResponseBody::StackTrace(StackTraceResponse {
                 stack_frames: vec![StackFrame {
-                    id: 0,
-                    name: "main".into(),
+                    id: args.thread_id,
+                    name: "<unknown>".into(),
                     source: Some(Source {
                         path,
                         ..Default::default()

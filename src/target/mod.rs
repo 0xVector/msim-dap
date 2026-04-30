@@ -25,6 +25,9 @@ pub enum TargetError {
 }
 
 pub trait DebugTarget {
+    /// Get the number of CPUs in the target.
+    fn cpu_count(&mut self) -> Result<u64>;
+
     /// Resume execution of the target.
     fn resume(&mut self) -> Result<()>;
 

@@ -140,7 +140,10 @@ pub enum Request {
     RaiseInterrupt { cpu: CpuId, id: InterruptId } = 0x14,
     /// Request to clear interrupt `arg1=id` on `arg0=cpu_id`. `0x15`
     ClearInterrupt { cpu: CpuId, id: InterruptId } = 0x15,
-    //
+
+    /// Request to get the current MSIM configuration. `0x16`
+    GetConfig = 0x16,
+
     // TODO: GetTlbEntry(index)
 }
 
@@ -251,6 +254,7 @@ impl Request {
             Self::TranslateAddress { cpu, address } => (0x13, cpu, address, 0x00),
             Self::RaiseInterrupt { cpu, id } => (0x14, cpu, id, 0x00),
             Self::ClearInterrupt { cpu, id } => (0x15, cpu, id, 0x00),
+            Self::GetConfig => (0x16, 0x00, 0x00, 0x00),
         };
         writer.write_u8(kind)?;
         writer.write_u64::<BigEndian>(arg0)?;

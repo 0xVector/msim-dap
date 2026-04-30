@@ -4,12 +4,7 @@ use crate::debugger::DebuggerError::RequestFailed;
 use crate::target::{DebugTarget, TargetError};
 use crate::LineNo;
 use dap::prelude::ResponseBody;
-use dap::requests::{
-    AttachRequestArguments, ContinueArguments, DisconnectArguments, InitializeArguments,
-    LaunchRequestArguments, NextArguments, PauseArguments, ScopesArguments,
-    SetBreakpointsArguments, SetExceptionBreakpointsArguments, StackTraceArguments,
-    StepInArguments,
-};
+use dap::requests::{AttachRequestArguments, ContinueArguments, DisconnectArguments, InitializeArguments, LaunchRequestArguments, NextArguments, PauseArguments, ScopesArguments, SetBreakpointsArguments, SetExceptionBreakpointsArguments, StackTraceArguments, StepInArguments, StepOutArguments};
 use dap::responses::{
     SetBreakpointsResponse, SetExceptionBreakpointsResponse, StackTraceResponse, ThreadsResponse,
 };
@@ -288,6 +283,15 @@ impl<T: DebugTarget> Debugger<T> {
 
         Ok(HandlerAction {
             body: ResponseBody::StepIn,
+            post_action: None,
+        })
+    }
+
+    pub(super) fn step_out(&mut self, _args: &StepOutArguments) -> HandlerResult {
+        self.target.step_by(1)?; // TODO: actual solution
+
+        Ok(HandlerAction {
+            body: ResponseBody::StepOut,
             post_action: None,
         })
     }

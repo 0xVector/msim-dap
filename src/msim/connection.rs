@@ -13,6 +13,7 @@ pub struct RawResponse {
     pub status: ResponseStatus,
     pub arg0: u64,
     pub arg1: u64,
+    pub arg2: u64,
 }
 
 type ResponseTx = std::sync::mpsc::Sender<RawResponse>;
@@ -47,16 +48,34 @@ fn post_msim_background(
             match Inbound::read(&mut msim_stream) {
                 Ok(inbound) => match inbound {
                     // Responses go to separate internal channel
-                    Inbound::Response { status, arg0, arg1 } => {
+                    Inbound::Response {
+                        status,
+                        arg0,
+                        arg1,
+                        arg2,
+                    } => {
                         // If the receiver is dropped, just exit the thread
-                        if resp_tx.send(RawResponse { status, arg0, arg1 }).is_err() {
+                        if resp_tx
+                            .send(RawResponse {
+                                status,
+                                arg0,
+                                arg1,
+                                arg2,
+                            })
+                            .is_err()
+                        {
                             break;
                         }
                     }
 
                     // Events go to the main event channel
-                    Inbound::Event { kind, arg0, arg1 } => {
-                        let (msg, fatal) = match Event::from_raw(kind, arg0, arg1) {
+                    Inbound::Event {
+                        kind,
+                        arg0,
+                        arg1,
+                        arg2,
+                    } => {
+                        let (msg, fatal) = match Event::from_raw(kind, arg0, arg1, arg2) {
                             Ok(event) => (Ok(DebugEvent::MsimEvent(event)), false),
                             Err(e) => (Err(MsimError::from(e).into()), true),
                         };

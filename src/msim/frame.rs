@@ -16,23 +16,24 @@ pub enum FrameError {
 }
 
 /// Size of an outbound frame (request) in bytes.
-/// Always `17 B`: `1 B` for the request kind and `16 B` for the two arguments (`arg0` and `arg1`).
-pub const OUTBOUND_FRAME_SIZE: usize = 17;
+/// Always `25 B`: `1 B` for the request kind and `24 B` for the three arguments (`arg0`, `arg1` and `arg2`).
+pub const OUTBOUND_FRAME_SIZE: usize = 25;
 const _: () = assert!(
-    OUTBOUND_FRAME_SIZE == size_of::<u8>() + 2 * size_of::<ArgType>(),
-    "Outbound frame size must be 17 bytes"
+    OUTBOUND_FRAME_SIZE == size_of::<u8>() + 3 * size_of::<ArgType>(),
+    "Outbound frame size must be 20 bytes"
 );
 
 /// Size of an inbound frame (response or event) in bytes.
-/// Always `18 B`: `1 B` for the category, `1 B` for the response/event kind, and `16 B` for the two arguments (`arg0` and `arg1`).
-pub const INBOUND_FRAME_SIZE: usize = 18;
+/// Always `26 B`: `1 B` for the category, `1 B` for the response/event kind, and `24 B` for the three arguments (`arg0`, `arg1` and `arg2`).
+pub const INBOUND_FRAME_SIZE: usize = 26;
 const _: () = assert!(
-    INBOUND_FRAME_SIZE == size_of::<u8>() + size_of::<u8>() + 2 * size_of::<ArgType>(),
-    "Inbound frame size must be 18 bytes"
+    INBOUND_FRAME_SIZE == size_of::<u8>() + size_of::<u8>() + 3 * size_of::<ArgType>(),
+    "Inbound frame size must be 26 bytes"
 );
 
 // Field types
 pub type InstructionCount = u64;
+pub type CpuId = u64;
 pub type RegisterId = u64;
 pub type CsrId = u64;
 pub type InterruptId = u64;
@@ -41,9 +42,13 @@ pub type InterruptId = u64;
 
 /// Data to write to memory, always `8 B`.
 pub type MemoryWriteData = u64;
-/// Generic argument type used in all requests, responses and events (arg0 and arg1). Always `8 B`.
+/// Generic argument type used in all requests, responses and events (arg0, arg1 and arg2). Always `8 B`.
 pub type ArgType = u64;
+/// Type of the request kind field. Always `1 B`.
+pub type RequestType = u8;
+/// Type of the response status field. Always `1 B`.
 pub type StatusType = u8;
+/// Type of the event kind field. Always `1 B`.
 pub type EventKindType = u8;
 
 /// Types of requests that can be sent to MSIM.
@@ -77,29 +82,37 @@ pub enum Request {
     /// Request to remove a code breakpoint at `arg0=address`. `0x06`
     RemoveCodeBreakpoint(Address) = 0x06,
 
-    /// Request to set a data breakpoint at `arg0=address` with `arg1=kind`. `0x07`
-    SetDataBreakpoint {
+    /// Request to set a physical data breakpoint at `arg0=address` with `arg1=kind`. `0x07`
+    SetPhysDataBreakpoint {
         address: Address,
         kind: DataBreakpointKind,
     } = 0x07,
-    /// Request to remove a data breakpoint at `arg0=address`. `0x08`
-    RemoveDataBreakpoint(Address) = 0x08,
+    /// Request to remove a physical data breakpoint at `arg0=address`. `0x08`
+    RemovePhysDataBreakpoint(Address) = 0x08,
 
     // Register requests
-    /// Request to read the value of register `arg0=id`. `0x09`
-    ReadGeneralRegister(RegisterId) = 0x09,
-    /// Request to write to register `arg0=id` the value `arg1=value`. `0x0A`
-    WriteGeneralRegister { id: RegisterId, value: u64 } = 0x0A,
+    /// Request to read the value of register `arg1=reg_id` from CPU `arg0=cpu_id`. `0x09`
+    ReadGeneralRegister { cpu: CpuId, reg: RegisterId } = 0x09,
+    /// Request to write to register `arg1=reg_id` of CPU `arg0=cpu_id` the value `arg2=value`. `0x0A`
+    WriteGeneralRegister {
+        cpu: CpuId,
+        reg: RegisterId,
+        value: ArgType,
+    } = 0x0A,
 
-    /// Request to read the value of Control and Status Register (CSR) `arg0=id`. `0x0B`
-    ReadCsr(CsrId) = 0x0B,
-    /// Request to write to Control and Status Register (CSR) `arg0=id` the value `arg1=value`. `0x0C`
-    WriteCsr { id: CsrId, value: u64 } = 0x0C,
+    /// Request to read the value of Control and Status Register (CSR) `arg1=id` from CPU `arg0=cpu_id`. `0x0B`
+    ReadCsr { cpu: CpuId, reg: CsrId } = 0x0B,
+    /// Request to write to Control and Status Register (CSR) `arg1=id` of CPU `arg0=cpu_id` the value `arg2=value`. `0x0C`
+    WriteCsr {
+        cpu: CpuId,
+        reg: CsrId,
+        value: ArgType,
+    } = 0x0C,
 
-    /// Request to read the value of the program counter. `0x0D`
-    ReadPC = 0x0D,
-    /// Request to write `arg0=value` to the program counter. `0x0E`
-    WritePC(Address) = 0x0E,
+    /// Request to read the value of the program counter from CPU `arg0=cpu_id`. `0x0D`
+    ReadPC(CpuId) = 0x0D,
+    /// Request to write `arg1=value` to the program counter of CPU `arg0=cpu_id`. `0x0E`
+    WritePC { cpu: CpuId, value: Address } = 0x0E,
 
     // Memory requests
     /// Request to read physical memory at `arg0=address`. `0x0F`
@@ -110,22 +123,23 @@ pub enum Request {
         data: MemoryWriteData,
     } = 0x10,
 
-    /// Request to read virtual memory at `arg0=address`. `0x11`
-    ReadVirtMemory(Address) = 0x11,
-    /// Request to write `arg1=data` (8 B) to virtual memory at `arg0=address`. `0x12`
+    /// Request to read virtual memory in the context of `arg0=cpu_id` at `arg1=address`. `0x11`
+    ReadVirtMemory { cpu: CpuId, address: Address } = 0x11,
+    /// Request to write `arg2=data` (8 B) to virtual memory in the context of `arg0=cpu_id` at `arg1=address`. `0x12`
     WriteVirtMemory {
+        cpu: CpuId,
         address: Address,
         data: MemoryWriteData,
     } = 0x12,
 
-    /// Request to translate the virtual address `arg0=address` to a physical address. `0x13`
-    TranslateAddress(Address) = 0x13,
+    /// Request to translate in the context of `arg0=cpu_id` the virtual address `arg1=address` to a physical address. `0x13`
+    TranslateAddress { cpu: CpuId, address: Address } = 0x13,
 
     // Interrupt requests
-    /// Request to raise interrupt `arg0=id`. `0x14`
-    RaiseInterrupt(InterruptId) = 0x14,
-    /// Request to clear interrupt `arg0=id`. `0x15`
-    ClearInterrupt(InterruptId) = 0x15,
+    /// Request to raise interrupt `arg1=id` on `arg0=cpu_id`. `0x14`
+    RaiseInterrupt { cpu: CpuId, id: InterruptId } = 0x14,
+    /// Request to clear interrupt `arg1=id` on `arg0=cpu_id`. `0x15`
+    ClearInterrupt { cpu: CpuId, id: InterruptId } = 0x15,
     //
     // TODO: GetTlbEntry(index)
 }
@@ -144,7 +158,7 @@ pub enum DataBreakpointKind {
 ///
 /// Format:  
 /// ```text
-/// [Category (1 B)] [(Response|Event)Kind (1 B)] [arg0 (8 B, BE)] [arg1 (8 B, BE)]
+/// [Category (1 B)] [(Response|Event)Kind (1 B)] [arg0 (8 B, BE)] [arg1 (8 B, BE)] [arg2 (8 B, BE)]
 /// ```
 #[repr(u8)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -156,6 +170,7 @@ pub enum Inbound {
         status: ResponseStatus,
         arg0: ArgType,
         arg1: ArgType,
+        arg2: ArgType,
     } = 0x01,
 
     /// MSIM event notification, with [`EventKind`] and optional arguments. `0x02`
@@ -163,6 +178,7 @@ pub enum Inbound {
         kind: EventKind,
         arg0: ArgType,
         arg1: ArgType,
+        arg2: ArgType,
     } = 0x02,
 }
 
@@ -182,6 +198,7 @@ pub enum ResponseStatus {
     UnsupportedRequestError = 0x03,
 }
 
+// TODO: more event kinds
 /// Kinds of events that can be received from MSIM.
 #[repr(u8)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -212,32 +229,33 @@ pub enum StoppedAtReason {
 impl Request {
     /// Write the Request to the given writer.
     pub fn write(self, writer: &mut impl Write) -> Result<()> {
-        let (kind, arg0, arg1): (u8, u64, u64) = match self {
-            Self::Resume => (0x01, 0x00, 0x00),
-            Self::Pause => (0x02, 0x00, 0x00),
-            Self::Stop => (0x03, 0x00, 0x00),
-            Self::Step(count) => (0x04, count, 0x00),
-            Self::SetCodeBreakpoint(address) => (0x05, address, 0x00),
-            Self::RemoveCodeBreakpoint(address) => (0x06, address, 0x00),
-            Self::SetDataBreakpoint { address, kind } => (0x07, address, kind as u64),
-            Self::RemoveDataBreakpoint(address) => (0x08, address, 0x00),
-            Self::ReadGeneralRegister(id) => (0x09, id, 0x00),
-            Self::WriteGeneralRegister { id, value } => (0x0A, id, value),
-            Self::ReadCsr(id) => (0x0B, id, 0x00),
-            Self::WriteCsr { id, value } => (0x0C, id, value),
-            Self::ReadPC => (0x0D, 0x00, 0x00),
-            Self::WritePC(address) => (0x0E, address, 0x00),
-            Self::ReadPhysMemory(address) => (0x0F, address, 0x00),
-            Self::WritePhysMemory { address, data } => (0x10, address, data),
-            Self::ReadVirtMemory(address) => (0x11, address, 0x00),
-            Self::WriteVirtMemory { address, data } => (0x12, address, data),
-            Self::TranslateAddress(address) => (0x13, address, 0x00),
-            Self::RaiseInterrupt(id) => (0x14, id, 0x00),
-            Self::ClearInterrupt(id) => (0x15, id, 0x00),
+        let (kind, arg0, arg1, arg2): (RequestType, ArgType, ArgType, ArgType) = match self {
+            Self::Resume => (0x01, 0x00, 0x00, 0x00),
+            Self::Pause => (0x02, 0x00, 0x00, 0x00),
+            Self::Stop => (0x03, 0x00, 0x00, 0x00),
+            Self::Step(count) => (0x04, count, 0x00, 0x00),
+            Self::SetCodeBreakpoint(address) => (0x05, address, 0x00, 0x00),
+            Self::RemoveCodeBreakpoint(address) => (0x06, address, 0x00, 0x00),
+            Self::SetPhysDataBreakpoint { address, kind } => (0x07, address, kind as u64, 0x00),
+            Self::RemovePhysDataBreakpoint(address) => (0x08, address, 0x00, 0x00),
+            Self::ReadGeneralRegister { cpu, reg } => (0x09, cpu, reg, 0x00),
+            Self::WriteGeneralRegister { cpu, reg, value } => (0x0A, cpu, reg, value),
+            Self::ReadCsr { cpu, reg } => (0x0B, cpu, reg, 0x00),
+            Self::WriteCsr { cpu, reg, value } => (0x0C, cpu, reg, value),
+            Self::ReadPC(cpu) => (0x0D, cpu, 0x00, 0x00),
+            Self::WritePC { cpu, value } => (0x0E, cpu, value, 0x00),
+            Self::ReadPhysMemory(address) => (0x0F, address, 0x00, 0x00),
+            Self::WritePhysMemory { address, data } => (0x10, address, data, 0x00),
+            Self::ReadVirtMemory { cpu, address } => (0x11, cpu, address, 0x00),
+            Self::WriteVirtMemory { cpu, address, data } => (0x12, cpu, address, data),
+            Self::TranslateAddress { cpu, address } => (0x13, cpu, address, 0x00),
+            Self::RaiseInterrupt { cpu, id } => (0x14, cpu, id, 0x00),
+            Self::ClearInterrupt { cpu, id } => (0x15, cpu, id, 0x00),
         };
         writer.write_u8(kind)?;
         writer.write_u64::<BigEndian>(arg0)?;
         writer.write_u64::<BigEndian>(arg1)?;
+        writer.write_u64::<BigEndian>(arg2)?;
         Ok(())
     }
 }
@@ -249,17 +267,20 @@ impl Inbound {
         let kind = reader.read_u8()?;
         let arg0 = reader.read_u64::<BigEndian>()?;
         let arg1 = reader.read_u64::<BigEndian>()?;
+        let arg2 = reader.read_u64::<BigEndian>()?;
 
         match category {
             0x01 => Ok(Self::Response {
                 status: ResponseStatus::read(kind)?,
                 arg0,
                 arg1,
+                arg2,
             }),
             0x02 => Ok(Self::Event {
                 kind: EventKind::read(kind)?,
                 arg0,
                 arg1,
+                arg2,
             }),
             _ => Err(FrameError::Parsing),
         }
@@ -299,5 +320,4 @@ impl StoppedAtReason {
             _ => Err(FrameError::Parsing),
         }
     }
-
 }

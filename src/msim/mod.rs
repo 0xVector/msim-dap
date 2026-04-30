@@ -57,7 +57,12 @@ impl From<std::io::Error> for MsimError {
 }
 
 impl Event {
-    pub fn from_raw(kind: EventKind, arg0: ArgType, arg1: ArgType) -> frame::Result<Self> {
+    pub fn from_raw(
+        kind: EventKind,
+        arg0: ArgType,
+        arg1: ArgType,
+        _arg2: ArgType,
+    ) -> frame::Result<Self> {
         match kind {
             EventKind::Exited => Ok(Self::Exited),
             EventKind::StoppedAt => Ok(Self::StoppedAt(arg0, StoppedAtReason::read(arg1)?)),

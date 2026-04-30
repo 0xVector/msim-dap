@@ -39,26 +39,36 @@ impl<T: DebugTarget> Debugger<T> {
             }
             None => "unknown file".to_string(),
         };
-        let mut message = format!("Stopped at {address:#x} ({source_desc}) due to {reason:?}");
 
-        let reason = match reason {
-            StoppedAtReason::Paused => StoppedEventReason::Pause,
-            StoppedAtReason::Breakpoint => {
-                if let Some((path, line)) = self.target.resolve_code_bp(address) {
-                    let id = i64::from(self.bp_registry.get_id(path, line));
-                    hits.push(id);
-                    message = format!("{message} (hit BP {id})");
+        let mut bp_message = None;
+
+        let dap_reason = if self.step_bp == Some(address) {
+            self.step_bp = None;
+            StoppedEventReason::Step
+        } else {
+            match reason {
+                StoppedAtReason::Paused => StoppedEventReason::Pause,
+                StoppedAtReason::Breakpoint => {
+                    if let Some((path, line)) = self.target.resolve_code_bp(address) {
+                        let id = i64::from(self.bp_registry.get_id(path, line));
+                        hits.push(id);
+                        bp_message = Some(format!("(hit BP {id})"));
+                    }
+                    StoppedEventReason::Breakpoint
                 }
-                StoppedEventReason::Breakpoint
+                StoppedAtReason::StepComplete => StoppedEventReason::Step,
+                StoppedAtReason::Interrupt => StoppedEventReason::Exception,
             }
-            StoppedAtReason::StepComplete => StoppedEventReason::Step,
-            StoppedAtReason::Interrupt => StoppedEventReason::Exception,
         };
+        let message = format!(
+            "Stopped at {address:#x} ({source_desc}) due to {dap_reason:?}{}",
+            bp_message.map(|m| format!(" {m}")).unwrap_or_default()
+        );
         eprintln!("{message}");
 
         Ok(Some(dap::events::Event::Stopped(
             dap::events::StoppedEventBody {
-                reason,
+                reason: dap_reason,
                 description: Some(message),
                 thread_id: Some(1), // TODO: track (CPU ID)
                 preserve_focus_hint: None,

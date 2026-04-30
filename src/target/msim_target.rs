@@ -47,6 +47,39 @@ impl<S: Connection> DebugTarget for MsimTarget<S> {
         }
     }
 
+    // TODO: if a BP is changed while step is in progress, replace fn will overwrite the step BP. Solving needs a flag but prolly not realistic.
+    fn set_code_bp(&mut self, source: &Path, line: LineNo) -> Result<Address> {
+        let address = self.index.get_address(source, line).ok_or_else(|| {
+            TargetError::AddressNotFound(source.to_string_lossy().into_owned(), line)
+        })?;
+
+        // BP already exists, just return the address
+        if self.bp_store.bps_addresses.contains(&address) {
+            return Ok(address);
+        }
+
+        self.connection
+            .send(Request::SetCodeBreakpoint(address))?
+            .get_result()?;
+        self.bp_store.bps_addresses.insert(address);
+
+        Ok(address)
+    }
+
+    fn remove_code_bp(&mut self, source: &Path, line: LineNo) -> Result<Address> {
+        let address = self.index.get_address(source, line).ok_or_else(|| {
+            TargetError::AddressNotFound(source.to_string_lossy().into_owned(), line)
+        })?;
+
+        if self.bp_store.bps_addresses.remove(&address) {
+            self.connection
+                .send(Request::RemoveCodeBreakpoint(address))?
+                .get_result()?;
+        }
+
+        Ok(address)
+    }
+
     fn replace_code_bps(&mut self, source: &Path, lines: &[LineNo]) -> Vec<Result<()>> {
         let old_by_file: HashMap<LineNo, Address> = self
             .bp_store
@@ -56,10 +89,10 @@ impl<S: Connection> DebugTarget for MsimTarget<S> {
             .into_iter()
             .collect();
 
-        for (&line, &addr) in &old_by_file {
+        // Remove old BPs that are not in the new set
+        for (&line, &_addr) in &old_by_file {
             if !lines.contains(&line) {
-                self.bp_store.bps_addresses.remove(&addr);
-                let _ = self.connection.send(Request::RemoveCodeBreakpoint(addr));
+                self.remove_code_bp(source, line).ok(); // TODO: handle error somehow
             }
         }
 
@@ -68,20 +101,14 @@ impl<S: Connection> DebugTarget for MsimTarget<S> {
 
         for &line in lines {
             let result: Result<()> = (|| {
+                // Reuse old BP if it exists
                 if let Some(&addr) = old_by_file.get(&line) {
                     new_by_file.push((line, addr));
                     return Ok(());
                 }
 
-                let addr = self.index.get_address(source, line).ok_or_else(|| {
-                    TargetError::AddressNotFound(source.to_string_lossy().into_owned(), line)
-                })?;
-
-                self.connection
-                    .send(Request::SetCodeBreakpoint(addr))?
-                    .get_result()?;
-                self.bp_store.bps_addresses.insert(addr);
-                new_by_file.push((line, addr));
+                let address = self.set_code_bp(source, line)?;
+                new_by_file.push((line, address));
                 Ok(())
             })();
 

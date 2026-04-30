@@ -13,6 +13,7 @@ pub struct Debugger<T: DebugTarget> {
     pub(super) target: T,
     pub(super) bp_registry: BpRegistry,
     pub(super) last_stopped_at: Option<Address>,
+    pub(super) step_bp: Option<Address>, // Address of pending step breakpoint
 }
 
 pub type BpId = u32;
@@ -41,6 +42,7 @@ impl<T: DebugTarget> Debugger<T> {
             target: msim_session,
             bp_registry: BpRegistry::new(),
             last_stopped_at: None,
+            step_bp: None,
         }
     }
 
@@ -123,6 +125,8 @@ impl<T: DebugTarget> Debugger<T> {
             Command::Scopes(args) => self.scopes(args),
             Command::Continue(args) => self.resume(args),
             Command::Pause(args) => self.pause(args),
+            Command::Next(args) => self.next(args),
+
             _ => Err(DebuggerError::RequestFailed(
                 format!("Unhandled command: {:?}", req.command).into(),
             )),

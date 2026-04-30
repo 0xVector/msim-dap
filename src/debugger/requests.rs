@@ -1,11 +1,13 @@
 use super::core::{HandlerAction, PostAction, PostAction::Disconnect};
 use super::{Debugger, DebuggerError, Result};
+use crate::LineNo;
+use crate::debugger::DebuggerError::RequestFailed;
 use crate::target::{DebugTarget, TargetError};
 use dap::prelude::ResponseBody;
 use dap::requests::{
     AttachRequestArguments, ContinueArguments, DisconnectArguments, InitializeArguments,
-    LaunchRequestArguments, PauseArguments, ScopesArguments, SetBreakpointsArguments,
-    SetExceptionBreakpointsArguments, StackTraceArguments,
+    LaunchRequestArguments, NextArguments, PauseArguments, ScopesArguments,
+    SetBreakpointsArguments, SetExceptionBreakpointsArguments, StackTraceArguments,
 };
 use dap::responses::{
     SetBreakpointsResponse, SetExceptionBreakpointsResponse, StackTraceResponse, ThreadsResponse,
@@ -15,6 +17,9 @@ use std::iter::zip;
 use std::path::Path;
 
 type HandlerResult = Result<HandlerAction>;
+
+/// How many lines to search for a valid step over target when stepping over
+const STEP_OVER_LINE_SEARCH_LIMIT: LineNo = 20;
 
 // DAP request handling
 // To make handlers consistent silence linter:
@@ -228,5 +233,48 @@ impl<T: DebugTarget> Debugger<T> {
             body: ResponseBody::Pause,
             post_action: None,
         })
+    }
+
+    pub(super) fn next(&mut self, _args: &NextArguments) -> HandlerResult {
+        let address = self.last_stopped_at.ok_or(RequestFailed(
+            "Cannot step because the target is not paused".into(),
+        ))?;
+        let (path, line) = self
+            .target
+            .resolve_address(address)
+            .ok_or(RequestFailed(
+                "Cannot step because the target address cannot be resolved".into(),
+            ))
+            .map(|(p, l)| (p.to_owned(), l))?;
+
+        // Set temporary BP at target location to know when the step is complete
+        for offset in 1..STEP_OVER_LINE_SEARCH_LIMIT {
+            let next_line = line + offset;
+            let next_address = match self.target.set_code_bp(path.as_path(), next_line) {
+                Ok(a) => a,
+                Err(TargetError::SessionLost) => return Err(DebuggerError::SessionLost),
+                Err(_) => continue, // Try next line if setting BP failed (e.g. no
+            };
+
+            self.step_bp = Some(next_address);
+
+            eprintln!(
+                "Step Over: {}:{line} (address {:#x}) -> :{} (address {:#x})",
+                path.display(),
+                address,
+                next_line,
+                next_address
+            );
+            self.target.resume()?;
+
+            return Ok(HandlerAction {
+                body: ResponseBody::Next,
+                post_action: None,
+            });
+        }
+
+        Err(RequestFailed(
+            "Cannot step because no valid next line was found".into(),
+        ))
     }
 }

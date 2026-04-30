@@ -34,6 +34,9 @@ pub trait DebugTarget {
     /// Stop the target.
     fn stop(&mut self) -> Result<()>;
 
+    /// Step by the given number of instructions
+    fn step_by(&mut self, count: u64) -> Result<()>;
+
     /// Set a code breakpoint at the given source and line, returning the address of the breakpoint.
     /// Does not affect existing breakpoints.
     /// If a breakpoint already exists at the given location, it does not set a new one.

@@ -4,11 +4,7 @@ use crate::LineNo;
 use crate::debugger::DebuggerError::RequestFailed;
 use crate::target::{DebugTarget, TargetError};
 use dap::prelude::ResponseBody;
-use dap::requests::{
-    AttachRequestArguments, ContinueArguments, DisconnectArguments, InitializeArguments,
-    LaunchRequestArguments, NextArguments, PauseArguments, ScopesArguments,
-    SetBreakpointsArguments, SetExceptionBreakpointsArguments, StackTraceArguments,
-};
+use dap::requests::{AttachRequestArguments, ContinueArguments, DisconnectArguments, InitializeArguments, LaunchRequestArguments, NextArguments, PauseArguments, ScopesArguments, SetBreakpointsArguments, SetExceptionBreakpointsArguments, StackTraceArguments, StepInArguments};
 use dap::responses::{
     SetBreakpointsResponse, SetExceptionBreakpointsResponse, StackTraceResponse, ThreadsResponse,
 };
@@ -276,5 +272,14 @@ impl<T: DebugTarget> Debugger<T> {
         Err(RequestFailed(
             "Cannot step because no valid next line was found".into(),
         ))
+    }
+
+    pub(super) fn step_in(&mut self, _args: &StepInArguments) -> HandlerResult {
+        self.target.step_by(1)?;
+
+        Ok(HandlerAction {
+            body: ResponseBody::StepIn,
+            post_action: None,
+        })
     }
 }

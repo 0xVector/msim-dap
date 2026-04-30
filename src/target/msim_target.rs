@@ -47,6 +47,10 @@ impl<S: Connection> DebugTarget for MsimTarget<S> {
         }
     }
 
+    fn step_by(&mut self, count: u64) -> Result<()> {
+        Ok(self.connection.send(Request::Step(count))?.get_result()?)
+    }
+
     // TODO: if a BP is changed while step is in progress, replace fn will overwrite the step BP. Solving needs a flag but prolly not realistic.
     fn set_code_bp(&mut self, source: &Path, line: LineNo) -> Result<Address> {
         let address = self.index.get_address(source, line).ok_or_else(|| {

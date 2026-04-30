@@ -126,6 +126,7 @@ impl<T: DebugTarget> Debugger<T> {
             Command::Continue(args) => self.resume(args),
             Command::Pause(args) => self.pause(args),
             Command::Next(args) => self.next(args),
+            Command::StepIn(args) => self.step_in(args),
 
             _ => Err(DebuggerError::RequestFailed(
                 format!("Unhandled command: {:?}", req.command).into(),

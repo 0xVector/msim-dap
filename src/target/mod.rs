@@ -1,4 +1,5 @@
-use crate::{Address, LineNo};
+use crate::msim::{CsrAddress, RegisterId};
+use crate::{Address, CpuId, LineNo};
 use std::path::Path;
 
 mod msim_target;
@@ -13,7 +14,8 @@ pub enum TargetError {
     #[error("Target session lost")]
     SessionLost,
 
-    #[error("Request failed")]
+    // Rest are recoverable errors that can be handled by the debugger
+    #[error("Request failed in Target")]
     RequestFailed,
 
     // TODO: are the params even needed?
@@ -22,6 +24,29 @@ pub enum TargetError {
 
     #[error("Address {0} is out of range")]
     AddressOutOfRange(Address),
+
+    #[error("CPU {0} not found")]
+    UnknownCpu(CpuId),
+
+    #[error("Unknown architecture")]
+    UnknownArch,
+
+    #[error("General-purpose register {0:#x} not found")]
+    BadGeneralReg(RegisterId),
+
+    #[error("CSR register {0:#x} not found")]
+    BadCsrReg(CsrAddress),
+
+    #[error("General-purpose register {0} not found")]
+    UnknownRegisterName(String),
+
+    #[error("CSR {0} not found")]
+    UnknownCsrName(String),
+}
+
+pub struct Register {
+    pub name: &'static str,
+    pub value: u64,
 }
 
 pub trait DebugTarget {
@@ -57,4 +82,16 @@ pub trait DebugTarget {
 
     /// Resolve the given address to a source and line.
     fn resolve_address(&self, address: Address) -> Option<(&Path, LineNo)>;
+
+    /// Read the value of all general-purpose registers on the given CPU.
+    fn read_general_regs(&mut self, cpu: CpuId) -> Result<Vec<Register>>;
+
+    /// Write the value of the general-purpose register with the given name on the given CPU.
+    fn write_general_reg(&mut self, cpu: CpuId, name: &str, value: u64) -> Result<()>;
+
+    /// Read the value of all CSR registers on the given CPU.
+    fn read_csrs(&mut self, cpu: CpuId) -> Result<Vec<Register>>;
+
+    /// Write the value of the CSR register (or program counter) with the given name on the given CPU.
+    fn write_csr(&mut self, cpu: CpuId, name: &str, value: u64) -> Result<()>;
 }

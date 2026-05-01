@@ -1,7 +1,8 @@
 use super::{DebuggerError, Result};
 use crate::adapter::Session;
+use crate::debugger::DebuggerError::RequestFailed;
 use crate::target::{DebugTarget, TargetError};
-use crate::{Address, DebugEvent, DebugEventReceiver, LineNo, msim};
+use crate::{Address, CpuId, DebugEvent, DebugEventReceiver, LineNo, msim};
 use dap::base_message::Sendable::{Event, Response};
 use dap::prelude::{Command, ResponseBody};
 use std::collections::HashMap;
@@ -12,15 +13,27 @@ pub struct Debugger<T: DebugTarget> {
     pub(super) dap_session: Session,
     pub(super) target: T,
     pub(super) bp_registry: BpRegistry,
+    pub(super) cpu_registry: CpuRegistry,
     pub(super) last_stopped_at: Option<Address>,
     pub(super) step_bp: Option<Address>, // Address of pending step breakpoint
 }
 
 pub type BpId = u32;
+pub type ThreadId = i64;
+pub type FrameId = i64;
+pub type VarRef = i64;
 
 pub struct BpRegistry {
     next_id: BpId,
     ids: HashMap<(PathBuf, LineNo), BpId>,
+}
+
+pub(super) struct CpuRegistry {}
+
+#[derive(Debug)]
+pub(super) enum VarScopeKind {
+    GeneralRegisters(CpuId),
+    CsrRegisters(CpuId),
 }
 
 #[allow(clippy::large_enum_variant)]
@@ -41,6 +54,7 @@ impl<T: DebugTarget> Debugger<T> {
             dap_session,
             target: msim_session,
             bp_registry: BpRegistry::new(),
+            cpu_registry: CpuRegistry::new(),
             last_stopped_at: None,
             step_bp: None,
         }
@@ -128,6 +142,8 @@ impl<T: DebugTarget> Debugger<T> {
             Command::Next(args) => self.next(args),
             Command::StepIn(args) => self.step_in(args),
             Command::StepOut(args) => self.step_out(args),
+            Command::Variables(args) => self.variables(args),
+            Command::SetVariable(args) => self.set_variable(args),
 
             _ => Err(DebuggerError::RequestFailed(
                 format!("Unhandled command: {:?}", req.command).into(),
@@ -162,6 +178,71 @@ impl BpRegistry {
                 self.next_id += 1;
                 id
             })
+    }
+}
+
+impl CpuRegistry {
+    pub const fn new() -> Self {
+        Self {}
+    }
+
+    /// Convert a CPU ID from the target to a thread ID for DAP.
+    #[allow(clippy::unused_self)] // will likely need to track more info about CPUs in the future
+    pub const fn cpu_to_thread_id(&self, cpu_id: CpuId) -> ThreadId {
+        (cpu_id + 1).cast_signed()
+    }
+
+    /// Convert a thread ID from DAP to a CPU ID for the target.
+    #[allow(clippy::unused_self)]
+    pub fn thread_to_cpu_id(&self, thread_id: ThreadId) -> Result<CpuId> {
+        if thread_id > 0 {
+            Ok((thread_id - 1).cast_unsigned())
+        } else {
+            Err(RequestFailed(
+                format!("Invalid thread ID (CPU ID) {thread_id}").into(),
+            ))
+        }
+    }
+
+    /// Get the stack frame ID for the given thread ID.
+    #[allow(clippy::unused_self)]
+    pub const fn thread_to_frame_id(&self, thread_id: ThreadId) -> FrameId {
+        thread_id
+    }
+
+    /// Get the thread ID for the given stack frame ID.
+    #[allow(clippy::unused_self)]
+    pub const fn frame_to_thread_id(&self, frame_id: FrameId) -> ThreadId {
+        frame_id
+    }
+
+    /// Get the general register scope ID for the given stack frame ID.
+    #[allow(clippy::unused_self)]
+    pub const fn reg_scope_var_ref(&self, frame_id: FrameId) -> VarRef {
+        frame_id * 10 + 1
+    }
+
+    /// Get the CSR register scope ID for the given stack frame ID.
+    #[allow(clippy::unused_self)]
+    pub const fn csr_scope_var_ref(&self, frame_id: FrameId) -> VarRef {
+        frame_id * 10 + 2
+    }
+
+    /// Resolve a variable reference to a scope kind
+    pub fn resolve_var_ref(&self, var_ref: VarRef) -> Result<VarScopeKind> {
+        let frame_id: FrameId = var_ref / 10;
+        let scope_kind = var_ref % 10;
+        let cpu_id = self.thread_to_cpu_id(self.frame_to_thread_id(frame_id))?;
+        let scope = match scope_kind {
+            1 => VarScopeKind::GeneralRegisters(cpu_id),
+            2 => VarScopeKind::CsrRegisters(cpu_id),
+            _ => {
+                return Err(RequestFailed(
+                    format!("Invalid variables reference: {var_ref}").into(),
+                ));
+            }
+        };
+        Ok(scope)
     }
 }
 

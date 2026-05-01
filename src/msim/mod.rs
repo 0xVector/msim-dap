@@ -8,7 +8,7 @@ use crate::Address;
 use frame::ArgType;
 
 pub use connection::{Connection, TcpConnection};
-pub use frame::{EventKind, Request, StoppedAtReason};
+pub use frame::{CpuArch, CsrAddress, EventKind, RegisterId, Request, StoppedAtReason};
 
 pub type Result<T> = std::result::Result<T, MsimError>;
 

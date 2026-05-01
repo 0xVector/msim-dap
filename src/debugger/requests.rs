@@ -1,14 +1,20 @@
-use super::core::{HandlerAction, PostAction, PostAction::Disconnect};
-use super::{Debugger, DebuggerError, Result};
-use crate::debugger::DebuggerError::RequestFailed;
+use super::core::{HandlerAction, PostAction, PostAction::Disconnect, VarScopeKind};
+use super::{Debugger, DebuggerError, DebuggerError::RequestFailed, Result};
 use crate::target::{DebugTarget, TargetError};
-use crate::LineNo;
+use crate::{CpuId, LineNo};
 use dap::prelude::ResponseBody;
-use dap::requests::{AttachRequestArguments, ContinueArguments, DisconnectArguments, InitializeArguments, LaunchRequestArguments, NextArguments, PauseArguments, ScopesArguments, SetBreakpointsArguments, SetExceptionBreakpointsArguments, StackTraceArguments, StepInArguments, StepOutArguments};
+use dap::requests::{
+    AttachRequestArguments, ContinueArguments, DisconnectArguments, InitializeArguments,
+    LaunchRequestArguments, NextArguments, PauseArguments, ScopesArguments,
+    SetBreakpointsArguments, SetExceptionBreakpointsArguments, StackTraceArguments,
+    StepInArguments, StepOutArguments,
+};
 use dap::responses::{
     SetBreakpointsResponse, SetExceptionBreakpointsResponse, StackTraceResponse, ThreadsResponse,
 };
-use dap::types::{Breakpoint, Capabilities, Source, StackFrame, Thread};
+use dap::types::{
+    Breakpoint, Capabilities, Scope, ScopePresentationhint, Source, StackFrame, Thread,
+};
 use std::iter::zip;
 use std::path::Path;
 
@@ -33,6 +39,7 @@ impl<T: DebugTarget> Debugger<T> {
         Ok(HandlerAction {
             body: ResponseBody::Initialize(Capabilities {
                 supports_configuration_done_request: Some(true),
+                supports_set_variable: Some(true),
                 ..Default::default() // No extra capabilities advertised
             }),
             post_action: Some(PostAction::SendEvent(dap::events::Event::Initialized)),
@@ -66,13 +73,9 @@ impl<T: DebugTarget> Debugger<T> {
     }
 
     pub(super) fn set_breakpoints(&mut self, args: &SetBreakpointsArguments) -> HandlerResult {
-        let path = args
-            .source
-            .path
-            .as_deref()
-            .ok_or(DebuggerError::RequestFailed(
-                "Source path is required for breakpoints".into(),
-            ))?;
+        let path = args.source.path.as_deref().ok_or(RequestFailed(
+            "Source path is required for breakpoints".into(),
+        ))?;
 
         let bps = args.breakpoints.as_deref().unwrap_or(&[]);
         let mut set_bps = Vec::new();
@@ -127,6 +130,11 @@ impl<T: DebugTarget> Debugger<T> {
                         eprintln!("{msg}");
                         bp_info.message = Some(msg);
                     }
+
+                    // These errors should not occur when setting code breakpoints
+                    e => {
+                        eprintln!("Unexpected error setting BP at {path}:{}: {e}", bp.line);
+                    }
                 },
             }
 
@@ -154,14 +162,14 @@ impl<T: DebugTarget> Debugger<T> {
     }
 
     pub(super) fn threads(&mut self) -> HandlerResult {
-        let cpu_count = self.target.cpu_count().unwrap_or(1).cast_signed();
+        let cpu_count: CpuId = self.target.cpu_count().unwrap_or(1);
 
         Ok(HandlerAction {
             body: ResponseBody::Threads(ThreadsResponse {
                 threads: (0..cpu_count)
-                    .map(|i| Thread {
-                        id: i + 1,
-                        name: format!("CPU {i}"),
+                    .map(|cpu_id| Thread {
+                        id: self.cpu_registry.cpu_to_thread_id(cpu_id),
+                        name: format!("CPU {cpu_id}"),
                     })
                     .collect(),
             }),
@@ -196,7 +204,7 @@ impl<T: DebugTarget> Debugger<T> {
         Ok(HandlerAction {
             body: ResponseBody::StackTrace(StackTraceResponse {
                 stack_frames: vec![StackFrame {
-                    id: args.thread_id,
+                    id: self.cpu_registry.thread_to_frame_id(args.thread_id),
                     name: "<unknown>".into(),
                     source: Some(Source {
                         path,
@@ -212,9 +220,97 @@ impl<T: DebugTarget> Debugger<T> {
         })
     }
 
-    pub(super) const fn scopes(&mut self, _args: &ScopesArguments) -> HandlerResult {
+    pub(super) fn scopes(&mut self, args: &ScopesArguments) -> HandlerResult {
+        eprintln!(
+            "Scopes requested for frame {} (CPU {})",
+            args.frame_id,
+            self.cpu_registry
+                .thread_to_cpu_id(self.cpu_registry.frame_to_thread_id(args.frame_id))?
+        );
+
         Ok(HandlerAction {
-            body: ResponseBody::Scopes(dap::responses::ScopesResponse { scopes: vec![] }),
+            body: ResponseBody::Scopes(dap::responses::ScopesResponse {
+                scopes: vec![
+                    Scope {
+                        name: "Registers".to_string(),
+                        presentation_hint: Some(ScopePresentationhint::Registers),
+                        variables_reference: self.cpu_registry.reg_scope_var_ref(args.frame_id),
+                        expensive: false,
+                        ..Default::default()
+                    },
+                    Scope {
+                        name: "Control and Status registers (CSR)".to_string(),
+                        presentation_hint: Some(ScopePresentationhint::Registers),
+                        variables_reference: self.cpu_registry.csr_scope_var_ref(args.frame_id),
+                        expensive: false,
+                        ..Default::default()
+                    },
+                ],
+            }),
+            post_action: None,
+        })
+    }
+
+    pub(super) fn variables(&mut self, args: &dap::requests::VariablesArguments) -> HandlerResult {
+        let scope = self
+            .cpu_registry
+            .resolve_var_ref(args.variables_reference)?;
+
+        let variables = match scope {
+            VarScopeKind::GeneralRegisters(cpu) => self.target.read_general_regs(cpu)?,
+            VarScopeKind::CsrRegisters(cpu) => self.target.read_csrs(cpu)?,
+        }
+        .into_iter()
+        .map(|reg| dap::types::Variable {
+            name: reg.name.to_string(),
+            value: format!("{:#x}", reg.value),
+            variables_reference: 0, // No nested variables for registers
+            ..Default::default()
+        })
+        .collect();
+
+        eprintln!("Variables returned for scope {scope:?}");
+        Ok(HandlerAction {
+            body: ResponseBody::Variables(dap::responses::VariablesResponse { variables }),
+            post_action: None,
+        })
+    }
+
+    pub(super) fn set_variable(
+        &mut self,
+        args: &dap::requests::SetVariableArguments,
+    ) -> HandlerResult {
+        let scope = self
+            .cpu_registry
+            .resolve_var_ref(args.variables_reference)?;
+
+        let value = match &args.value {
+            v if v.starts_with("0x") => u64::from_str_radix(&v[2..], 16).map_err(|_| {
+                RequestFailed(format!("Invalid hexadecimal value: {}", args.value).into())
+            })?,
+
+            v if v.starts_with("0b") => u64::from_str_radix(&v[2..], 2).map_err(|_| {
+                RequestFailed(format!("Invalid binary value: {}", args.value).into())
+            })?,
+
+            v => v.parse::<u64>().map_err(|_| {
+                RequestFailed(format!("Invalid decimal value: {}", args.value).into())
+            })?,
+        };
+
+        match scope {
+            VarScopeKind::GeneralRegisters(cpu) => {
+                self.target.write_general_reg(cpu, &args.name, value)?;
+            }
+            VarScopeKind::CsrRegisters(cpu) => self.target.write_csr(cpu, &args.name, value)?,
+        }
+
+        Ok(HandlerAction {
+            body: ResponseBody::SetVariable(dap::responses::SetVariableResponse {
+                value: format!("{value:#x}"),
+                type_field: Some("register".into()),
+                ..Default::default()
+            }),
             post_action: None,
         })
     }

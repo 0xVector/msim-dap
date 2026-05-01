@@ -35,7 +35,7 @@ const _: () = assert!(
 pub type InstructionCount = u64;
 pub type CpuId = u64;
 pub type RegisterId = u64;
-pub type CsrId = u64;
+pub type CsrAddress = u64;
 pub type InterruptId = u64;
 
 // Types used in the MSIM protocol
@@ -101,11 +101,11 @@ pub enum Request {
     } = 0x0A,
 
     /// Request to read the value of Control and Status Register (CSR) `arg1=id` from CPU `arg0=cpu_id`. `0x0B`
-    ReadCsr { cpu: CpuId, reg: CsrId } = 0x0B,
+    ReadCsr { cpu: CpuId, reg: CsrAddress } = 0x0B,
     /// Request to write to Control and Status Register (CSR) `arg1=id` of CPU `arg0=cpu_id` the value `arg2=value`. `0x0C`
     WriteCsr {
         cpu: CpuId,
-        reg: CsrId,
+        reg: CsrAddress,
         value: ArgType,
     } = 0x0C,
 
@@ -144,6 +144,8 @@ pub enum Request {
     /// Request to get the current MSIM configuration. `0x16`
     GetConfig = 0x16,
 
+    /// Request to get information about the CPU `arg0=cpu_id`.
+    GetCpuInfo(CpuId) = 0x17,
     // TODO: GetTlbEntry(index)
 }
 
@@ -229,6 +231,17 @@ pub enum StoppedAtReason {
     Interrupt = 0x04,
 }
 
+/// Kinds of CPU architectures, used inside the response to [`Request::GetCpuInfo`]
+#[repr(u8)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum CpuArch {
+    Mips = 0x01,
+    RiscV32 = 0x02,
+    RiscV64 = 0x03,
+    /// Unknown architecture, used when the CPU architecture isn't recognized. `0xFF`
+    Unknown = 0xFF,
+}
+
 impl Request {
     /// Write the Request to the given writer.
     pub fn write(self, writer: &mut impl Write) -> Result<()> {
@@ -255,6 +268,7 @@ impl Request {
             Self::RaiseInterrupt { cpu, id } => (0x14, cpu, id, 0x00),
             Self::ClearInterrupt { cpu, id } => (0x15, cpu, id, 0x00),
             Self::GetConfig => (0x16, 0x00, 0x00, 0x00),
+            Self::GetCpuInfo(cpu) => (0x17, cpu, 0x00, 0x00),
         };
         writer.write_u8(kind)?;
         writer.write_u64::<BigEndian>(arg0)?;
@@ -322,6 +336,19 @@ impl StoppedAtReason {
             0x03 => Ok(Self::StepComplete),
             0x04 => Ok(Self::Interrupt),
             _ => Err(FrameError::Parsing),
+        }
+    }
+}
+
+impl CpuArch {
+    /// Read a [`CpuArch`] from the given input.
+    pub const fn read(arch: ArgType) -> Self {
+        match arch {
+            0x01 => Self::Mips,
+            0x02 => Self::RiscV32,
+            0x03 => Self::RiscV64,
+            // To keep working even if new arch added without updating
+            _ => Self::Unknown,
         }
     }
 }

@@ -39,7 +39,10 @@ pub type Address = u64;
 /// Line number type
 pub type LineNo = i64;
 
-/// Port number
+/// CPU ID type
+pub type CpuId = u64;
+
+/// Port number type
 type Port = u16;
 
 /// DAP layer mode

@@ -9,6 +9,7 @@ pub trait Connection {
 }
 
 #[allow(unused)] // TODO: implement & use
+#[derive(Debug, Clone, Copy)]
 pub struct RawResponse {
     pub status: ResponseStatus,
     pub arg0: u64,
@@ -100,9 +101,10 @@ fn post_msim_background(
 }
 
 impl RawResponse {
-    pub const fn get_result(&self) -> Result<()> {
+    // TODO(!!!): serious rework, this should somehow only return the args if ok - think it through
+    pub const fn to_result(self) -> Result<Self> {
         match self.status {
-            ResponseStatus::Ok => Ok(()),
+            ResponseStatus::Ok => Ok(self),
             _ => Err(MsimError::RequestFailed), // Any error status
         }
     }

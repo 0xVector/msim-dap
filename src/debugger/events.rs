@@ -15,7 +15,7 @@ type EventResult = Result<Option<dap::events::Event>>;
     clippy::needless_pass_by_ref_mut
 )]
 impl<T: DebugTarget> Debugger<T> {
-    pub(super) fn handle_event_exited(&mut self) -> EventResult {
+    pub(super) fn handle_event_terminated(&mut self) -> EventResult {
         // TODO: we could allow returning multiple events (like in request handlers)
         self.dap_session
             .send(Sendable::Event(dap::events::Event::Terminated(None)))?;

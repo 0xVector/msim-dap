@@ -159,7 +159,7 @@ impl<T: DebugTarget> Debugger<T> {
 
     fn handle_msim_event(&mut self, event: msim::Event) -> Result<Option<dap::events::Event>> {
         match event {
-            msim::Event::Exited => self.handle_event_exited(),
+            msim::Event::Exited => self.handle_event_terminated(),
             msim::Event::StoppedAt(address, reason) => {
                 self.handle_event_stopped_at(address, reason)
             }

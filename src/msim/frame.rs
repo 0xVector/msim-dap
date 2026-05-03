@@ -71,8 +71,8 @@ pub enum Request {
     Resume = 0x01,
     /// Request to pause execution. `0x02`
     Pause = 0x02,
-    /// Request to stop execution and exit the simulator. `0x03`
-    Stop = 0x03,
+    /// Request to terminate execution and exit the simulator. `0x03`
+    Terminate = 0x03,
     /// Request to step `arg0=count` instructions. `0x04`
     Step(InstructionCount) = 0x04,
 
@@ -210,8 +210,8 @@ pub enum ResponseStatus {
 pub enum EventKind {
     /// 0x00 Reserved for uninitialized events, should not be received on the wire.
 
-    /// Event indicating that the simulator has exited. `0x01`
-    Exited = 0x01,
+    /// Event indicating that the simulator has terminated. `0x01`
+    Terminated = 0x01,
 
     /// Event indicating that the simulator has stopped at `arg0=address` due to `arg1=reason`. `0x02`
     StoppedAt = 0x02,
@@ -248,7 +248,7 @@ impl Request {
         let (kind, arg0, arg1, arg2): (RequestType, ArgType, ArgType, ArgType) = match self {
             Self::Resume => (0x01, 0x00, 0x00, 0x00),
             Self::Pause => (0x02, 0x00, 0x00, 0x00),
-            Self::Stop => (0x03, 0x00, 0x00, 0x00),
+            Self::Terminate => (0x03, 0x00, 0x00, 0x00),
             Self::Step(count) => (0x04, count, 0x00, 0x00),
             Self::SetCodeBreakpoint(address) => (0x05, address, 0x00, 0x00),
             Self::RemoveCodeBreakpoint(address) => (0x06, address, 0x00, 0x00),
@@ -320,7 +320,7 @@ impl EventKind {
     /// Read an [`EventKind`] from the given input.
     pub const fn read(kind: EventKindType) -> Result<Self> {
         match kind {
-            0x01 => Ok(Self::Exited),
+            0x01 => Ok(Self::Terminated),
             0x02 => Ok(Self::StoppedAt),
             _ => Err(FrameError::Parsing),
         }

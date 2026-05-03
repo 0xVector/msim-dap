@@ -218,7 +218,7 @@ fn event_deserialize_stopped_at() -> Result<()> {
 #[test]
 fn event_deserialize_exited() -> Result<()> {
     let gold = Inbound::Event {
-        kind: EventKind::Exited,
+        kind: EventKind::Terminated,
         arg0: 0,
         arg1: 0,
         arg2: 0,

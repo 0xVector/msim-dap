@@ -86,8 +86,8 @@ impl<S: Connection> DebugTarget for MsimTarget<S> {
         Ok(())
     }
 
-    fn stop(&mut self) -> Result<()> {
-        match self.connection.send(Request::Stop) {
+    fn terminate(&mut self) -> Result<()> {
+        match self.connection.send(Request::Terminate) {
             // We treat these errors as success
             Ok(_)
             | Err(MsimError::ListenerDied | MsimError::ClosedError | MsimError::IOError(_)) => {

@@ -180,7 +180,7 @@ impl<T: DebugTarget> Debugger<T> {
     }
 
     pub(super) fn disconnect(&mut self, _args: &DisconnectArguments) -> HandlerResult {
-        self.target.stop().ok(); // Best effort to stop target, ignore errors since we're disconnecting anyway
+        self.target.terminate().ok(); // Best effort to stop target, ignore errors since we're disconnecting anyway
 
         Ok(HandlerAction {
             body: ResponseBody::Disconnect,

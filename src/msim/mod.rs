@@ -63,7 +63,7 @@ impl Event {
         _arg2: ArgType,
     ) -> frame::Result<Self> {
         match kind {
-            EventKind::Exited => Ok(Self::Exited),
+            EventKind::Terminated => Ok(Self::Exited),
             EventKind::StoppedAt => Ok(Self::StoppedAt(arg0, StoppedAtReason::read(arg1)?)),
         }
     }

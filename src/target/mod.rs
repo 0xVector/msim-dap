@@ -59,8 +59,8 @@ pub trait DebugTarget {
     /// Pause execution of the target.
     fn pause(&mut self) -> Result<()>;
 
-    /// Stop the target.
-    fn stop(&mut self) -> Result<()>;
+    /// Terminate the target.
+    fn terminate(&mut self) -> Result<()>;
 
     /// Step by the given number of instructions
     fn step_by(&mut self, count: u64) -> Result<()>;

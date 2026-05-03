@@ -94,4 +94,10 @@ pub trait DebugTarget {
 
     /// Write the value of the CSR register (or program counter) with the given name on the given CPU.
     fn write_csr(&mut self, cpu: CpuId, name: &str, value: u64) -> Result<()>;
+
+    /// Read `length` bytes of memory starting at the given physical address.
+    fn read_phys_memory(&mut self, address: Address, length: usize) -> Result<Vec<u8>>;
+
+    /// Read `length` bytes of memory starting at the given virtual address.
+    fn read_virt_memory(&mut self, cpu: CpuId, address: Address, length: usize) -> Result<Vec<u8>>;
 }

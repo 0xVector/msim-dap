@@ -1,11 +1,12 @@
-use super::core::{HandlerAction, PostAction, PostAction::Disconnect, VarScopeKind};
+use super::core::{HandlerAction, MemoryRef, PostAction, PostAction::Disconnect, VarScopeKind};
 use super::{Debugger, DebuggerError, DebuggerError::RequestFailed, Result};
 use crate::target::{DebugTarget, TargetError};
 use crate::{CpuId, LineNo};
+use base64::{Engine, engine::general_purpose::STANDARD};
 use dap::prelude::ResponseBody;
 use dap::requests::{
     AttachRequestArguments, ContinueArguments, DisconnectArguments, InitializeArguments,
-    LaunchRequestArguments, NextArguments, PauseArguments, ScopesArguments,
+    LaunchRequestArguments, NextArguments, PauseArguments, ReadMemoryArguments, ScopesArguments,
     SetBreakpointsArguments, SetExceptionBreakpointsArguments, StackTraceArguments,
     StepInArguments, StepOutArguments,
 };
@@ -40,6 +41,7 @@ impl<T: DebugTarget> Debugger<T> {
             body: ResponseBody::Initialize(Capabilities {
                 supports_configuration_done_request: Some(true),
                 supports_set_variable: Some(true),
+                supports_read_memory_request: Some(true),
                 ..Default::default() // No extra capabilities advertised
             }),
             post_action: Some(PostAction::SendEvent(dap::events::Event::Initialized)),
@@ -256,18 +258,29 @@ impl<T: DebugTarget> Debugger<T> {
             .cpu_registry
             .resolve_var_ref(args.variables_reference)?;
 
-        let variables = match scope {
-            VarScopeKind::GeneralRegisters(cpu) => self.target.read_general_regs(cpu)?,
-            VarScopeKind::CsrRegisters(cpu) => self.target.read_csrs(cpu)?,
-        }
-        .into_iter()
-        .map(|reg| dap::types::Variable {
-            name: reg.name.to_string(),
-            value: format!("{:#x}", reg.value),
-            variables_reference: 0, // No nested variables for registers
-            ..Default::default()
-        })
-        .collect();
+        let (cpu, registers) = match scope {
+            VarScopeKind::GeneralRegisters(cpu) => (cpu, self.target.read_general_regs(cpu)?),
+            VarScopeKind::CsrRegisters(cpu) => (cpu, self.target.read_csrs(cpu)?),
+        };
+        let variables = registers
+            .into_iter()
+            .map(|reg| dap::types::Variable {
+                name: reg.name.to_string(),
+                value: format!("{:#x}", reg.value),
+                variables_reference: 0, // No nested variables for registers
+                // type_field: Some("u64".into()), // TODO: figure out what looks best in UI
+                presentation_hint: Some(dap::types::VariablePresentationHint {
+                    kind: Some(dap::types::VariablePresentationHintKind::String(
+                        "register".into(),
+                    )),
+                    attributes: None,
+                    visibility: None,
+                    lazy: None,
+                }),
+                memory_reference: Some(MemoryRef::Virtual(cpu, reg.value).to_string()),
+                ..Default::default()
+            })
+            .collect();
 
         eprintln!("Variables returned for scope {scope:?}");
         Ok(HandlerAction {
@@ -388,6 +401,34 @@ impl<T: DebugTarget> Debugger<T> {
 
         Ok(HandlerAction {
             body: ResponseBody::StepOut,
+            post_action: None,
+        })
+    }
+
+    pub(super) fn read_memory(&mut self, args: &ReadMemoryArguments) -> HandlerResult {
+        let length =
+            usize::try_from(args.count).map_err(|_| RequestFailed("Invalid byte count".into()))?;
+        let offset = args.offset.unwrap_or(0);
+
+        let mem_ref = MemoryRef::parse(&args.memory_reference)?;
+        let address = (mem_ref.address().cast_signed() + offset).cast_unsigned();
+
+        let data = match mem_ref {
+            MemoryRef::Physical(_base) => self.target.read_phys_memory(address, length)?,
+            MemoryRef::Virtual(cpu, _base) => self.target.read_virt_memory(cpu, address, length)?,
+        };
+
+        eprintln!(
+            "Read of {length} bytes from memory requested: got {} B at {address:#x} (offset {offset:#x}) (ref {})",
+            data.len(),
+            args.memory_reference
+        );
+        Ok(HandlerAction {
+            body: ResponseBody::ReadMemory(dap::responses::ReadMemoryResponse {
+                address: format!("{address:#x}"),
+                unreadable_bytes: None,
+                data: Some(STANDARD.encode(data)),
+            }),
             post_action: None,
         })
     }

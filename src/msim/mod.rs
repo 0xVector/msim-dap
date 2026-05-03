@@ -5,10 +5,9 @@ mod tcp;
 mod tests;
 
 use crate::Address;
-use frame::ArgType;
 
 pub use connection::{Connection, TcpConnection};
-pub use frame::{CpuArch, CsrAddress, EventKind, RegisterId, Request, StoppedAtReason};
+pub use frame::{ArgType, CpuArch, CsrAddress, EventKind, RegisterId, Request, StoppedAtReason};
 
 pub type Result<T> = std::result::Result<T, MsimError>;
 

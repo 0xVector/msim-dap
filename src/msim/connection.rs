@@ -8,7 +8,6 @@ pub trait Connection {
     fn send(&mut self, command: Request) -> Result<RawResponse>;
 }
 
-#[allow(unused)] // TODO: implement & use
 #[derive(Debug, Clone, Copy)]
 pub struct RawResponse {
     pub status: ResponseStatus,

@@ -1,11 +1,11 @@
-use super::{DebuggerError, Result};
+use super::{DebuggerError, DebuggerError::RequestFailed, Result};
 use crate::adapter::Session;
-use crate::debugger::DebuggerError::RequestFailed;
 use crate::target::{DebugTarget, TargetError};
 use crate::{Address, CpuId, DebugEvent, DebugEventReceiver, LineNo, msim};
 use dap::base_message::Sendable::{Event, Response};
 use dap::prelude::{Command, ResponseBody};
 use std::collections::HashMap;
+use std::fmt::Display;
 use std::path::{Path, PathBuf};
 
 pub struct Debugger<T: DebugTarget> {
@@ -28,7 +28,12 @@ pub struct BpRegistry {
     ids: HashMap<(PathBuf, LineNo), BpId>,
 }
 
-pub(super) struct CpuRegistry {}
+pub(super) struct CpuRegistry;
+
+pub(super) enum MemoryRef {
+    Physical(Address),
+    Virtual(CpuId, Address),
+}
 
 #[derive(Debug)]
 pub(super) enum VarScopeKind {
@@ -144,6 +149,7 @@ impl<T: DebugTarget> Debugger<T> {
             Command::StepOut(args) => self.step_out(args),
             Command::Variables(args) => self.variables(args),
             Command::SetVariable(args) => self.set_variable(args),
+            Command::ReadMemory(args) => self.read_memory(args),
 
             _ => Err(DebuggerError::RequestFailed(
                 format!("Unhandled command: {:?}", req.command).into(),
@@ -243,6 +249,87 @@ impl CpuRegistry {
             }
         };
         Ok(scope)
+    }
+}
+
+impl MemoryRef {
+    const DELIM: char = ':';
+
+    pub const fn address(&self) -> Address {
+        match self {
+            Self::Physical(addr) | Self::Virtual(_, addr) => *addr,
+        }
+    }
+
+    pub fn parse(string: &str) -> Result<Self> {
+        let mut parts = string.split(Self::DELIM);
+        let kind = parts.next().ok_or_else(|| {
+            RequestFailed(format!("Invalid memory reference (missing kind): {string}").into())
+        })?;
+
+        match kind {
+            "phys" => {
+                let addr = parts
+                    .next()
+                    .ok_or_else(|| {
+                        RequestFailed(
+                            format!(
+                                "Invalid physical memory reference (missing address): {string}"
+                            )
+                            .into(),
+                        )
+                    })
+                    .and_then(|s| Self::parse_hex(s, "address"))?;
+                Ok(Self::Physical(addr))
+            }
+
+            "virt" => {
+                let cpu_id = parts
+                    .next()
+                    .ok_or_else(|| {
+                        RequestFailed(
+                            format!("Invalid virtual memory reference (missing CPU ID): {string}")
+                                .into(),
+                        )
+                    })
+                    .and_then(|s| {
+                        s.parse::<CpuId>().map_err(|e| {
+                        RequestFailed(format!("Invalid virtual memory reference (invalid CPU ID): {string}: {e}").into()) })
+                    })?;
+
+                let addr = parts
+                    .next()
+                    .ok_or_else(|| {
+                        RequestFailed(
+                            format!("Invalid virtual memory reference (missing address): {string}")
+                                .into(),
+                        )
+                    })
+                    .and_then(|s| Self::parse_hex(s, "address"))?;
+                Ok(Self::Virtual(cpu_id, addr))
+            }
+
+            _ => Err(RequestFailed(
+                format!("Invalid memory reference (unknown kind): {string}").into(),
+            )),
+        }
+    }
+
+    fn parse_hex(string: &str, ctx: &str) -> Result<u64> {
+        u64::from_str_radix(string.trim_start_matches("0x"), 16).map_err(|e| {
+            RequestFailed(
+                format!("Invalid memory reference (invalid {ctx}) '{string}': {e}").into(),
+            )
+        })
+    }
+}
+
+impl Display for MemoryRef {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        match self {
+            Self::Physical(addr) => write!(f, "phys:{addr:#x}"),
+            Self::Virtual(cpu_id, addr) => write!(f, "virt:{cpu_id}:{addr:#x}"),
+        }
     }
 }
 

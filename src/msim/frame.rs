@@ -73,8 +73,8 @@ pub enum Request {
     Pause = 0x02,
     /// Request to terminate execution and exit the simulator. `0x03`
     Terminate = 0x03,
-    /// Request to step `arg0=count` instructions. `0x04`
-    Step(InstructionCount) = 0x04,
+    /// Request to step `arg0=cpu_id` by `arg1=count` instructions. `0x04`
+    Step(CpuId, InstructionCount) = 0x04,
 
     // Breakpoint requests
     /// Request to set a code breakpoint at `arg0=address`. `0x05`
@@ -213,7 +213,7 @@ pub enum EventKind {
     /// Event indicating that the simulator has terminated. `0x01`
     Terminated = 0x01,
 
-    /// Event indicating that the simulator has stopped at `arg0=address` due to `arg1=reason`. `0x02`
+    /// Event indicating that the `arg0=cpu_id` has stopped at `arg1=address` due to `arg2=reason`. `0x02`
     StoppedAt = 0x02,
 }
 
@@ -249,7 +249,7 @@ impl Request {
             Self::Resume => (0x01, 0x00, 0x00, 0x00),
             Self::Pause => (0x02, 0x00, 0x00, 0x00),
             Self::Terminate => (0x03, 0x00, 0x00, 0x00),
-            Self::Step(count) => (0x04, count, 0x00, 0x00),
+            Self::Step(cpu, count) => (0x04, cpu, count, 0x00),
             Self::SetCodeBreakpoint(address) => (0x05, address, 0x00, 0x00),
             Self::RemoveCodeBreakpoint(address) => (0x06, address, 0x00, 0x00),
             Self::SetPhysDataBreakpoint { address, kind } => (0x07, address, kind as u64, 0x00),

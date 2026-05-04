@@ -62,8 +62,8 @@ pub trait DebugTarget {
     /// Terminate the target.
     fn terminate(&mut self) -> Result<()>;
 
-    /// Step by the given number of instructions
-    fn step_by(&mut self, count: u64) -> Result<()>;
+    /// Step the given CPU by a given number of instructions
+    fn step_by(&mut self, cpu: CpuId, count: u64) -> Result<()>;
 
     /// Set a code breakpoint at the given source and line, returning the address of the breakpoint.
     /// Does not affect existing breakpoints.
@@ -94,6 +94,13 @@ pub trait DebugTarget {
 
     /// Write the value of the CSR register (or program counter) with the given name on the given CPU.
     fn write_csr(&mut self, cpu: CpuId, name: &str, value: u64) -> Result<()>;
+
+    /// Read the program counter of the given CPU.
+    fn read_pc(&mut self, cpu: CpuId) -> Result<Address>;
+
+    #[allow(unused)]
+    /// Write the program counter of the given CPU.
+    fn write_pc(&mut self, cpu: CpuId, address: Address) -> Result<()>;
 
     /// Read `length` bytes of memory starting at the given physical address.
     fn read_phys_memory(&mut self, address: Address, length: usize) -> Result<Vec<u8>>;

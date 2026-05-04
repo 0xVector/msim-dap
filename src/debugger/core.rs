@@ -14,8 +14,7 @@ pub struct Debugger<T: DebugTarget> {
     pub(super) target: T,
     pub(super) bp_registry: BpRegistry,
     pub(super) cpu_registry: CpuRegistry,
-    pub(super) last_stopped_at: Option<Address>,
-    pub(super) step_bp: Option<Address>, // Address of pending step breakpoint
+    pub(super) step_bp: HashMap<CpuId, Address>, // Address of pending step breakpoint
 }
 
 pub type BpId = u32;
@@ -60,8 +59,7 @@ impl<T: DebugTarget> Debugger<T> {
             target: msim_session,
             bp_registry: BpRegistry::new(),
             cpu_registry: CpuRegistry::new(),
-            last_stopped_at: None,
-            step_bp: None,
+            step_bp: HashMap::new(),
         }
     }
 
@@ -160,8 +158,8 @@ impl<T: DebugTarget> Debugger<T> {
     fn handle_msim_event(&mut self, event: msim::Event) -> Result<Option<dap::events::Event>> {
         match event {
             msim::Event::Exited => self.handle_event_terminated(),
-            msim::Event::StoppedAt(address, reason) => {
-                self.handle_event_stopped_at(address, reason)
+            msim::Event::StoppedAt(cpu, address, reason) => {
+                self.handle_event_stopped_at(cpu, address, reason)
             }
         }
     }

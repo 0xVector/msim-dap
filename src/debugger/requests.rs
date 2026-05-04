@@ -189,16 +189,17 @@ impl<T: DebugTarget> Debugger<T> {
     }
 
     pub(super) fn stack_trace(&mut self, args: &StackTraceArguments) -> HandlerResult {
+        let cpu_id = self.cpu_registry.thread_to_cpu_id(args.thread_id)?;
+        let address = self.target.read_pc(cpu_id)?;
+
         let (path, line) = self
-            .last_stopped_at
-            .and_then(|addr| self.target.resolve_address(addr))
+            .target
+            .resolve_address(address)
             .map_or((None, 0), |(path, line)| {
                 (Some(path.to_string_lossy().into_owned()), line)
             });
         eprintln!(
-            "Stack trace requested, last stopped at: {} ({}:{})",
-            self.last_stopped_at
-                .map_or_else(|| "<unknown>".into(), |a| format!("{a:#x}")),
+            "Stack trace requested, last stopped at: {address} ({}:{})",
             path.as_deref().unwrap_or("<unknown>"),
             line
         );
@@ -344,10 +345,10 @@ impl<T: DebugTarget> Debugger<T> {
         })
     }
 
-    pub(super) fn next(&mut self, _args: &NextArguments) -> HandlerResult {
-        let address = self.last_stopped_at.ok_or(RequestFailed(
-            "Cannot step because the target is not paused".into(),
-        ))?;
+    pub(super) fn next(&mut self, args: &NextArguments) -> HandlerResult {
+        let cpu_id = self.cpu_registry.thread_to_cpu_id(args.thread_id)?;
+        let address = self.target.read_pc(cpu_id)?;
+
         let (path, line) = self
             .target
             .resolve_address(address)
@@ -365,7 +366,7 @@ impl<T: DebugTarget> Debugger<T> {
                 Err(_) => continue, // Try next line if setting BP failed (e.g. no
             };
 
-            self.step_bp = Some(next_address);
+            self.step_bp.insert(cpu_id, next_address);
 
             eprintln!(
                 "Step Over: {}:{line} (address {:#x}) -> :{} (address {:#x})",
@@ -387,8 +388,9 @@ impl<T: DebugTarget> Debugger<T> {
         ))
     }
 
-    pub(super) fn step_in(&mut self, _args: &StepInArguments) -> HandlerResult {
-        self.target.step_by(1)?;
+    pub(super) fn step_in(&mut self, args: &StepInArguments) -> HandlerResult {
+        self.target
+            .step_by(self.cpu_registry.thread_to_cpu_id(args.thread_id)?, 1)?;
 
         Ok(HandlerAction {
             body: ResponseBody::StepIn,
@@ -396,8 +398,9 @@ impl<T: DebugTarget> Debugger<T> {
         })
     }
 
-    pub(super) fn step_out(&mut self, _args: &StepOutArguments) -> HandlerResult {
-        self.target.step_by(1)?; // TODO: actual solution
+    pub(super) fn step_out(&mut self, args: &StepOutArguments) -> HandlerResult {
+        self.target
+            .step_by(self.cpu_registry.thread_to_cpu_id(args.thread_id)?, 1)?; // TODO: actual solution
 
         Ok(HandlerAction {
             body: ResponseBody::StepOut,

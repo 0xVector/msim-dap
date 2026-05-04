@@ -97,8 +97,10 @@ impl<S: Connection> DebugTarget for MsimTarget<S> {
         }
     }
 
-    fn step_by(&mut self, count: u64) -> Result<()> {
-        self.connection.send(Request::Step(count))?.to_result()?;
+    fn step_by(&mut self, cpu: CpuId, count: u64) -> Result<()> {
+        self.connection
+            .send(Request::Step(cpu, count))?
+            .to_result()?;
         Ok(())
     }
 
@@ -242,11 +244,7 @@ impl<S: Connection> DebugTarget for MsimTarget<S> {
         eprintln!("Reading PC for CPU {cpu} ({arch})");
         registers.push(Register {
             name: PC_REG_NAME,
-            value: self
-                .connection
-                .send(Request::ReadPC(cpu))?
-                .to_result()?
-                .arg0,
+            value: self.read_pc(cpu)?,
         });
 
         eprintln!("Reading {} CSRs for CPU {cpu} ({arch})", csr_ids.len());
@@ -268,10 +266,7 @@ impl<S: Connection> DebugTarget for MsimTarget<S> {
     fn write_csr(&mut self, cpu: CpuId, name: &str, value: u64) -> Result<()> {
         // PC special case
         if name == PC_REG_NAME {
-            self.connection
-                .send(Request::WritePC { cpu, value })?
-                .to_result()?;
-            return Ok(());
+            return self.write_pc(cpu, value);
         }
 
         let reg = self
@@ -282,6 +277,24 @@ impl<S: Connection> DebugTarget for MsimTarget<S> {
 
         self.connection
             .send(Request::WriteCsr { cpu, reg, value })?
+            .to_result()?;
+        Ok(())
+    }
+
+    fn read_pc(&mut self, cpu: CpuId) -> Result<Address> {
+        Ok(self
+            .connection
+            .send(Request::ReadPC(cpu))?
+            .to_result()?
+            .arg0)
+    }
+
+    fn write_pc(&mut self, cpu: CpuId, address: Address) -> Result<()> {
+        self.connection
+            .send(Request::WritePC {
+                cpu,
+                value: address,
+            })?
             .to_result()?;
         Ok(())
     }

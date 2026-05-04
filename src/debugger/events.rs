@@ -1,7 +1,7 @@
 use super::{Debugger, Result};
-use crate::Address;
 use crate::msim::StoppedAtReason;
 use crate::target::DebugTarget;
+use crate::{Address, CpuId};
 use dap::base_message::Sendable;
 use dap::types::StoppedEventReason;
 
@@ -27,10 +27,10 @@ impl<T: DebugTarget> Debugger<T> {
 
     pub(super) fn handle_event_stopped_at(
         &mut self,
+        cpu: CpuId,
         address: Address,
         reason: StoppedAtReason,
     ) -> EventResult {
-        self.last_stopped_at = Some(address);
         let mut hits = vec![];
 
         let source_desc = match self.target.resolve_address(address) {
@@ -42,8 +42,8 @@ impl<T: DebugTarget> Debugger<T> {
 
         let mut bp_message = None;
 
-        let dap_reason = if self.step_bp == Some(address) {
-            self.step_bp = None;
+        let dap_reason = if self.step_bp.get(&cpu) == Some(&address) {
+            self.step_bp.remove(&cpu);
             StoppedEventReason::Step
         } else {
             match reason {
@@ -70,7 +70,7 @@ impl<T: DebugTarget> Debugger<T> {
             dap::events::StoppedEventBody {
                 reason: dap_reason,
                 description: Some(message),
-                thread_id: Some(1), // TODO: track (CPU ID)
+                thread_id: Some(self.cpu_registry.cpu_to_thread_id(cpu)),
                 preserve_focus_hint: None,
                 text: None,
                 all_threads_stopped: Some(true),

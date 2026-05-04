@@ -5,6 +5,7 @@ mod tcp;
 mod tests;
 
 use crate::Address;
+use frame::CpuId;
 
 pub use connection::{Connection, TcpConnection};
 pub use frame::{ArgType, CpuArch, CsrAddress, EventKind, RegisterId, Request, StoppedAtReason};
@@ -43,7 +44,7 @@ pub enum MsimError {
 #[derive(Copy, Clone)]
 pub enum Event {
     Exited,
-    StoppedAt(Address, StoppedAtReason),
+    StoppedAt(CpuId, Address, StoppedAtReason),
 }
 
 impl From<std::io::Error> for MsimError {
@@ -60,11 +61,11 @@ impl Event {
         kind: EventKind,
         arg0: ArgType,
         arg1: ArgType,
-        _arg2: ArgType,
+        arg2: ArgType,
     ) -> frame::Result<Self> {
         match kind {
             EventKind::Terminated => Ok(Self::Exited),
-            EventKind::StoppedAt => Ok(Self::StoppedAt(arg0, StoppedAtReason::read(arg1)?)),
+            EventKind::StoppedAt => Ok(Self::StoppedAt(arg0, arg1, StoppedAtReason::read(arg2)?)),
         }
     }
 }

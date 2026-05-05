@@ -47,21 +47,26 @@ impl DwarfIndexBuilder {
     }
 }
 
+pub trait DebugIndex {
+    fn get_address(&self, file_path: &Path, line: LineNo) -> Option<Address>;
+    fn resolve_address(&self, address: Address) -> Option<(&Path, LineNo)>;
+}
+
 pub struct DwarfIndex {
     file_ids: HashMap<PathBuf, FileId>,
     line_to_address: HashMap<LineKey, Address>,
     address_to_line: BTreeMap<Address, LineKey>,
 }
 
-impl DwarfIndex {
-    pub fn get_address(&self, file_path: &Path, line: LineNo) -> Option<Address> {
+impl DebugIndex for DwarfIndex {
+    fn get_address(&self, file_path: &Path, line: LineNo) -> Option<Address> {
         let id = *self.file_ids.get(file_path)?;
         self.line_to_address
             .get(&LineKey { file: id, line })
             .copied()
     }
 
-    pub fn resolve_address(&self, address: Address) -> Option<(&Path, LineNo)> {
+    fn resolve_address(&self, address: Address) -> Option<(&Path, LineNo)> {
         self.address_to_line
             .range(..=address)
             .next_back()

@@ -1,14 +1,14 @@
 use super::{DebugTarget, Register, Result, TargetError};
-use crate::dwarf::DwarfIndex;
+use crate::dwarf::DebugIndex;
 use crate::msim::{ArgType, Connection, CpuArch, CsrAddress, MsimError, RegisterId, Request};
 use crate::{Address, CpuId, LineNo};
 use std::collections::{HashMap, HashSet};
 use std::fmt;
 use std::path::{Path, PathBuf};
 
-pub struct MsimTarget<S: Connection> {
-    connection: S,
-    index: DwarfIndex,
+pub struct MsimTarget<C: Connection, I: DebugIndex> {
+    connection: C,
+    index: I,
     bp_store: BpStore,
     config: Option<Config>,
 }
@@ -39,8 +39,8 @@ struct RegisterMapper {
 
 const PC_REG_NAME: &str = "pc";
 
-impl<S: Connection> MsimTarget<S> {
-    pub fn new(session: S, index: DwarfIndex) -> Self {
+impl<C: Connection, I: DebugIndex> MsimTarget<C, I> {
+    pub fn new(session: C, index: I) -> Self {
         Self {
             connection: session,
             index,
@@ -71,7 +71,7 @@ impl<S: Connection> MsimTarget<S> {
     }
 }
 
-impl<S: Connection> DebugTarget for MsimTarget<S> {
+impl<C: Connection, I: DebugIndex> DebugTarget for MsimTarget<C, I> {
     fn cpu_count(&mut self) -> Result<u64> {
         Ok(self.get_config()?.cpu_count)
     }

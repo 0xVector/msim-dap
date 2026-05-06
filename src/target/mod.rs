@@ -1,3 +1,5 @@
+/// Module for the debug target abstraction,
+/// containing the `DebugTarget` trait and its implementation for MSIM, [`MsimTarget`].
 use crate::msim::{CsrAddress, RegisterId};
 use crate::{Address, CpuId, LineNo};
 use std::path::Path;
@@ -8,8 +10,10 @@ mod tests;
 
 pub use msim_target::MsimTarget;
 
+/// Result type for target operations
 pub type Result<T> = std::result::Result<T, TargetError>;
 
+/// Errors that can occur in the target
 #[derive(thiserror::Error, Debug)]
 pub enum TargetError {
     /// Fatal error
@@ -20,37 +24,47 @@ pub enum TargetError {
     #[error("Request failed in Target")]
     RequestFailed,
 
+    /// Address not found for the given source and line
     // TODO: are the params even needed?
     #[error("Address not found for {0}:{1}")]
     AddressNotFound(String, LineNo),
 
+    /// Address is out of range
     #[error("Address {0} is out of range")]
     AddressOutOfRange(Address),
 
+    /// The given CPU ID does not exist in the target
     #[error("CPU {0} not found")]
     UnknownCpu(CpuId),
 
+    /// The target architecture is not supported by the target implementation
     #[error("Unknown architecture")]
     UnknownArch,
 
+    /// The general-purpose register with the given ID does not exist in the target architecture
     #[error("General-purpose register {0:#x} not found")]
     BadGeneralReg(RegisterId),
 
+    /// The control and status register with the given address does not exist in the target architecture
     #[error("CSR register {0:#x} not found")]
     BadCsrReg(CsrAddress),
 
+    /// The general-purpose register with the given name does not exist in the target architecture
     #[error("General-purpose register {0} not found")]
     UnknownRegisterName(String),
 
+    /// The control and status register with the given name does not exist in the target architecture
     #[error("CSR {0} not found")]
     UnknownCsrName(String),
 }
 
+/// Representation of a register, containing its name and value.
 pub struct Register {
     pub name: &'static str,
     pub value: u64,
 }
 
+/// Abstraction over a debug target, e.g. a process or a simulator.
 pub trait DebugTarget {
     /// Get the number of CPUs in the target.
     fn cpu_count(&mut self) -> Result<u64>;

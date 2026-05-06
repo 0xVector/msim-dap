@@ -1,3 +1,4 @@
+//! Implementation of [`DebugTarget`] for MSIM, using the MSIM debug protocol.
 use super::{DebugTarget, Register, Result, TargetError};
 use crate::dwarf::DebugIndex;
 use crate::msim::{ArgType, Connection, CpuArch, CsrAddress, MsimError, RegisterId, Request};
@@ -6,6 +7,7 @@ use std::collections::{HashMap, HashSet};
 use std::fmt;
 use std::path::{Path, PathBuf};
 
+/// Debug target implementation for MSIM.
 pub struct MsimTarget<C: Connection, I: DebugIndex> {
     connection: C,
     index: I,

@@ -2,7 +2,8 @@
     clippy::unwrap_used,
     clippy::expect_used,
     clippy::panic,
-    clippy::unnecessary_wraps
+    clippy::unnecessary_wraps,
+    unused
 )]
 
 use crate::dwarf::DebugIndex;
@@ -18,6 +19,7 @@ type HandlerT = Box<dyn FnMut(&Request) -> Result<RawResponse>>;
 type ConnectionT = Rc<RefCell<MockConnection>>;
 type TargetT = MsimTarget<ConnectionT, MockIndex>;
 
+/// Mock test connection that records sent requests and allows for custom response handling.
 struct MockConnection {
     handler: HandlerT,
     pub sent: Vec<Request>,

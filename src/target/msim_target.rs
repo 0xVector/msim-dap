@@ -101,6 +101,7 @@ impl<C: Connection, I: DebugIndex> DebugTarget for MsimTarget<C, I> {
         self.connection
             .send(Request::Step(cpu, count))?
             .to_result()?;
+        self.resume()?;
         Ok(())
     }
 

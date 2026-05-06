@@ -27,13 +27,14 @@
 - Restart, Terminate - should add MSIM support too
 - Threads
 - run in terminal launch MSIM (have to add to dap-rs - PR)
+- show CPUs as threads in DAP
 
 ### Moonshots
 - Variables
 - Disassemble
 - LoadedSources
 - SetVariable/SetExpression
-- opt-in kernel threads via custom debuggging device
+- opt-in kernel threads via custom debuggging device (switchable with CPUs ad threads mode)
 
 ---
 

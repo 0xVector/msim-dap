@@ -346,6 +346,7 @@ impl<T: DebugTarget> Debugger<T> {
     }
 
     pub(super) fn next(&mut self, args: &NextArguments) -> HandlerResult {
+        // Next means step over in DAP
         let cpu_id = self.cpu_registry.thread_to_cpu_id(args.thread_id)?;
         let address = self.target.read_pc(cpu_id)?;
 

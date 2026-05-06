@@ -48,7 +48,9 @@ pub enum MsimError {
 /// Interpreted MSIM events
 #[derive(Copy, Clone)]
 pub enum Event {
-    Exited,
+    /// MSIM has terminated
+    Terminated,
+    /// MSIM has stopped at a specific address due to CPU and a reason
     StoppedAt(CpuId, Address, StoppedAtReason),
 }
 
@@ -69,7 +71,7 @@ impl Event {
         arg2: ArgType,
     ) -> frame::Result<Self> {
         match kind {
-            EventKind::Terminated => Ok(Self::Exited),
+            EventKind::Terminated => Ok(Self::Terminated),
             EventKind::StoppedAt => Ok(Self::StoppedAt(arg0, arg1, StoppedAtReason::read(arg2)?)),
         }
     }

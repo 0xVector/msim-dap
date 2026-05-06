@@ -1,3 +1,4 @@
+//! Functions for parsing DWARF information from object files.
 use crate::LineNo;
 use crate::dwarf::index::{DwarfIndex, DwarfIndexBuilder};
 use crate::dwarf::{DwarfError, Result};
@@ -6,6 +7,7 @@ use std::path::Path;
 use std::result::Result as StdResult;
 use std::{borrow, error, fs, path};
 
+/// Parse DWARF information from the given object file and build a `DwarfIndex`.
 pub fn parse_dwarf(path: &Path) -> Result<DwarfIndex> {
     let file = fs::read(path)?;
     let object = object::File::parse(file.as_slice())?;
@@ -19,6 +21,10 @@ pub fn parse_dwarf(path: &Path) -> Result<DwarfIndex> {
     Ok(builder.build())
 }
 
+/// Parse DWARF line information from the given object file and return a `DwarfIndexBuilder`.
+///
+/// Parts of this function are adapted from the `gimli` example:
+/// <https://github.com/gimli-rs/gimli/blob/main/crates/examples/src/bin/simple_line.rs>
 fn parse_lines(
     object: &object::File,
     endian: gimli::RunTimeEndian,

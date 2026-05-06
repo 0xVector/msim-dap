@@ -1,3 +1,5 @@
+//! This module provides a [`DebugIndex`] trait for mapping between source code locations and addresses,
+//! as well as a concrete implementation [`DwarfIndex`].
 use crate::{Address, LineNo};
 use std::collections::{BTreeMap, HashMap};
 use std::path::{Path, PathBuf};
@@ -11,6 +13,7 @@ struct LineKey {
     line: LineNo,
 }
 
+/// Builder for constructing a [`DwarfIndex`] from parsed DWARF data.
 pub struct DwarfIndexBuilder {
     current_id: FileId,
     file_ids: HashMap<PathBuf, FileId>,
@@ -47,11 +50,13 @@ impl DwarfIndexBuilder {
     }
 }
 
+/// Trait for mapping between source code locations and addresses.
 pub trait DebugIndex {
     fn get_address(&self, file_path: &Path, line: LineNo) -> Option<Address>;
     fn resolve_address(&self, address: Address) -> Option<(&Path, LineNo)>;
 }
 
+/// Concrete implementation of [`DebugIndex`] using DWARF data.
 pub struct DwarfIndex {
     file_ids: HashMap<PathBuf, FileId>,
     line_to_address: HashMap<LineKey, Address>,

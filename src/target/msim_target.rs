@@ -120,6 +120,11 @@ impl<C: Connection, I: DebugIndex> DebugTarget for MsimTarget<C, I> {
             .send(Request::SetCodeBreakpoint(address))?
             .to_result()?;
         self.bp_store.bps_addresses.insert(address);
+        self.bp_store
+            .bps_per_file
+            .entry(source.to_path_buf())
+            .or_default()
+            .push((line, address));
 
         Ok(address)
     }
@@ -133,6 +138,11 @@ impl<C: Connection, I: DebugIndex> DebugTarget for MsimTarget<C, I> {
             self.connection
                 .send(Request::RemoveCodeBreakpoint(address))?
                 .to_result()?;
+        }
+        if let Some(bps) = self.bp_store.bps_per_file.get_mut(source)
+            && let Some(i) = bps.iter().position(|&(_, addr)| addr == address)
+        {
+            bps.remove(i);
         }
 
         Ok(address)

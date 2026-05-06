@@ -42,8 +42,14 @@ impl<T: DebugTarget> Debugger<T> {
 
         let mut bp_message = None;
 
+        // Step breakpoints handling
         let dap_reason = if self.step_bp.get(&cpu) == Some(&address) {
             self.step_bp.remove(&cpu);
+            if let Some((path, line)) = self.target.resolve_address(address) {
+                self.target
+                    .remove_code_bp(path.to_owned().as_path(), line)
+                    .ok(); // best effort cleanup, not critical if it fails
+            }
             StoppedEventReason::Step
         } else {
             match reason {

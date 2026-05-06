@@ -1,3 +1,5 @@
+//! Core logic of the debugger, including the main event loop and
+//! the dispatching of events and requests to their respective handlers.
 use super::{DebuggerError, DebuggerError::RequestFailed, Result};
 use crate::adapter::Session;
 use crate::target::{DebugTarget, TargetError};
@@ -8,6 +10,12 @@ use std::collections::HashMap;
 use std::fmt::Display;
 use std::path::{Path, PathBuf};
 
+/// Main debugger struct, containing the state of the debugging session and
+/// the main event loop.
+/// It is responsible for receiving events from the target and requests from the DAP client,
+/// dispatching them to the appropriate handlers, and sending responses and events back to the client.
+/// It operates at the highest level of the debugger, coordinating between the DAP session, the target session,
+/// and the internal state of the debugger.
 pub struct Debugger<T: DebugTarget> {
     pub(super) receiver: DebugEventReceiver,
     pub(super) dap_session: Session,
@@ -17,35 +25,52 @@ pub struct Debugger<T: DebugTarget> {
     pub(super) step_bp: HashMap<CpuId, Address>, // Address of pending step breakpoint
 }
 
+/// Breakpoint ID
 pub type BpId = u32;
+/// Thread ID
 pub type ThreadId = i64;
+/// Stack frame ID
 pub type FrameId = i64;
+/// Variable reference ID
 pub type VarRef = i64;
 
+/// Registry for breakpoint state
 pub struct BpRegistry {
     next_id: BpId,
     ids: HashMap<(PathBuf, LineNo), BpId>,
 }
 
+/// Registry for CPU and thread state, mapping between target CPU IDs and DAP thread IDs
 pub(super) struct CpuRegistry;
 
+/// Memory reference, encoding either a physical address or a virtual address with CPU ID
 pub(super) enum MemoryRef {
+    /// Physical memory reference, containing the physical address
     Physical(Address),
+    /// Virtual memory reference, containing the CPU ID and the virtual address
     Virtual(CpuId, Address),
 }
 
+/// Kind of a variable scope
 #[derive(Debug)]
 pub(super) enum VarScopeKind {
+    /// General-purpose registers for a specific CPU
     GeneralRegisters(CpuId),
+    /// Control and status registers for a specific CPU
     CsrRegisters(CpuId),
 }
 
+/// Action to perform after sending a response to a DAP request,
+/// allowingthe handler to specify additional events to send or to disconnect the session.
 #[allow(clippy::large_enum_variant)]
 pub(super) enum PostAction {
+    /// Send an additional event to the DAP client after sending the response
     SendEvent(dap::events::Event),
+    /// Disconnect the DAP session after sending the response
     Disconnect,
 }
 
+/// Result of handling a DAP request, containing the response body to send and an optional [`PostAction`] to perform.
 pub(super) struct HandlerAction {
     pub body: ResponseBody,
     pub post_action: Option<PostAction>,
@@ -63,6 +88,7 @@ impl<T: DebugTarget> Debugger<T> {
         }
     }
 
+    /// Main event loop of the debugger, dispatching incoming events and requests to their respective handlers
     pub fn run(&mut self) -> Result<()> {
         loop {
             match self.receiver.recv() {
@@ -85,8 +111,9 @@ impl<T: DebugTarget> Debugger<T> {
         }
     }
 
-    // FatalError should not be passed to this function
-    // All errors returned are fatal
+    /// Handle a single debug event, which can be either a DAP request or a target event.
+    /// `FatalError` should not be passed to this function
+    /// All errors returned are fatal
     fn handle(&mut self, event: DebugEvent) -> Result<()> {
         match event {
             // Handle requests
@@ -128,6 +155,7 @@ impl<T: DebugTarget> Debugger<T> {
         }
     }
 
+    /// Handle a DAP request, dispatching to the appropriate handler based on the command.
     fn handle_dap_request(&mut self, req: &dap::requests::Request) -> Result<HandlerAction> {
         match &req.command {
             Command::Initialize(args) => self.initialize(args),
@@ -156,6 +184,7 @@ impl<T: DebugTarget> Debugger<T> {
         }
     }
 
+    /// Handle an event from the target, dispatching to the appropriate handler based on the event type.
     fn handle_msim_event(&mut self, event: msim::Event) -> Result<Option<dap::events::Event>> {
         match event {
             msim::Event::Terminated => self.handle_event_terminated(),
@@ -174,6 +203,8 @@ impl BpRegistry {
         }
     }
 
+    /// Get the breakpoint ID for the given source location, creating a new one if it doesn't exist.
+    /// This is idempotent.
     pub fn get_id(&mut self, path: &Path, line: LineNo) -> BpId {
         *self
             .ids
@@ -252,14 +283,17 @@ impl CpuRegistry {
 }
 
 impl MemoryRef {
+    /// Delimiter used in the string representation of memory references
     const DELIM: char = ':';
 
+    /// Get the address contained in the memory reference, regardless of whether it is physical or virtual.
     pub const fn address(&self) -> Address {
         match self {
             Self::Physical(addr) | Self::Virtual(_, addr) => *addr,
         }
     }
 
+    /// Parse a memory reference from a string
     pub fn parse(string: &str) -> Result<Self> {
         let mut parts = string.split(Self::DELIM);
         let kind = parts.next().ok_or_else(|| {
@@ -324,6 +358,10 @@ impl MemoryRef {
 }
 
 impl Display for MemoryRef {
+    /// String representation of memory references, used for encoding them in DAP variable references.
+    /// Examples:
+    /// - Physical memory reference: `phys:0x1234`
+    /// - Virtual memory reference: `virt:0:0x5678` (CPU ID 0, address 0x5678)
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         match self {
             Self::Physical(addr) => write!(f, "phys:{addr:#x}"),

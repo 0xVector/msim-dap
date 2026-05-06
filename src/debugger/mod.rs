@@ -1,3 +1,8 @@
+//! Debugger module implements the main event loop and debugging event handlers.
+//! It is composed of the following submodules:
+//! - `core`: contains the main [`Debugger`] struct and its implementation.
+//! - `events`: defines the events that the [`Debugger`] can handle and emit.
+//! - `requests`: defines the requests that the [`Debugger`] can handle and emit.
 mod core;
 mod events;
 mod requests;
@@ -6,10 +11,13 @@ use crate::adapter;
 
 pub use core::Debugger;
 
+/// Result type for the debugger module.
 pub type Result<T> = std::result::Result<T, DebuggerError>;
 
 type AnyError = Box<dyn std::error::Error + Send + Sync>;
 
+/// Errors that can occur in the debugger module, aggregating
+/// error types from lower layers.
 #[derive(thiserror::Error, Debug)]
 pub enum DebuggerError {
     // Fatal errors

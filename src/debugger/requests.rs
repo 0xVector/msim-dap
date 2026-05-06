@@ -1,3 +1,4 @@
+//! DAP request handlers
 use super::core::{HandlerAction, MemoryRef, PostAction, PostAction::Disconnect, VarScopeKind};
 use super::{Debugger, DebuggerError, DebuggerError::RequestFailed, Result};
 use crate::target::{DebugTarget, TargetError};
@@ -32,6 +33,7 @@ const STEP_OVER_LINE_SEARCH_LIMIT: LineNo = 20;
     clippy::needless_pass_by_ref_mut
 )]
 impl<T: DebugTarget> Debugger<T> {
+    /// Handle `initialize` request
     pub(super) fn initialize(&mut self, args: &InitializeArguments) -> HandlerResult {
         if let Some(name) = &args.client_name {
             eprintln!("New client: {name}, {}", args.adapter_id);
@@ -48,6 +50,7 @@ impl<T: DebugTarget> Debugger<T> {
         })
     }
 
+    /// Handle `attach` request
     pub(super) fn attach(&mut self, _args: &AttachRequestArguments) -> HandlerResult {
         eprintln!("Attach request");
         Ok(HandlerAction {
@@ -56,6 +59,7 @@ impl<T: DebugTarget> Debugger<T> {
         })
     }
 
+    /// Handle `launch` request
     pub(super) fn launch(&mut self, _args: &LaunchRequestArguments) -> HandlerResult {
         eprintln!("Launch request");
         Ok(HandlerAction {
@@ -64,6 +68,7 @@ impl<T: DebugTarget> Debugger<T> {
         })
     }
 
+    /// Handle `configurationDone` request
     pub(super) fn configuration_done(&mut self) -> HandlerResult {
         // TODO: maybe its not universal/shouldn't be to resume on startup
         self.target.resume()?;
@@ -74,6 +79,7 @@ impl<T: DebugTarget> Debugger<T> {
         })
     }
 
+    /// Handle `setBreakpoints` request
     pub(super) fn set_breakpoints(&mut self, args: &SetBreakpointsArguments) -> HandlerResult {
         let path = args.source.path.as_deref().ok_or(RequestFailed(
             "Source path is required for breakpoints".into(),
@@ -151,6 +157,7 @@ impl<T: DebugTarget> Debugger<T> {
         })
     }
 
+    /// Handle `setExceptionBreakpoints` request
     pub(super) const fn set_exception_breakpoints(
         &mut self,
         _args: &SetExceptionBreakpointsArguments,
@@ -163,6 +170,7 @@ impl<T: DebugTarget> Debugger<T> {
         })
     }
 
+    /// Handle `threads` request
     pub(super) fn threads(&mut self) -> HandlerResult {
         let cpu_count: CpuId = self.target.cpu_count().unwrap_or(1);
 
@@ -179,6 +187,7 @@ impl<T: DebugTarget> Debugger<T> {
         })
     }
 
+    /// Handle `disconnect` request
     pub(super) fn disconnect(&mut self, _args: &DisconnectArguments) -> HandlerResult {
         self.target.terminate().ok(); // Best effort to stop target, ignore errors since we're disconnecting anyway
 
@@ -188,6 +197,7 @@ impl<T: DebugTarget> Debugger<T> {
         })
     }
 
+    /// Handle `stackTrace` request
     pub(super) fn stack_trace(&mut self, args: &StackTraceArguments) -> HandlerResult {
         let cpu_id = self.cpu_registry.thread_to_cpu_id(args.thread_id)?;
         let address = self.target.read_pc(cpu_id)?;
@@ -239,6 +249,7 @@ impl<T: DebugTarget> Debugger<T> {
         })
     }
 
+    /// Handle `scopes` request
     pub(super) fn scopes(&mut self, args: &ScopesArguments) -> HandlerResult {
         eprintln!(
             "Scopes requested for frame {} (CPU {})",
@@ -270,6 +281,7 @@ impl<T: DebugTarget> Debugger<T> {
         })
     }
 
+    /// Handle `variables` request
     pub(super) fn variables(&mut self, args: &dap::requests::VariablesArguments) -> HandlerResult {
         let scope = self
             .cpu_registry
@@ -306,6 +318,7 @@ impl<T: DebugTarget> Debugger<T> {
         })
     }
 
+    /// Handle `setVariable` request
     pub(super) fn set_variable(
         &mut self,
         args: &dap::requests::SetVariableArguments,
@@ -345,6 +358,7 @@ impl<T: DebugTarget> Debugger<T> {
         })
     }
 
+    /// Handle `continue` request, called `resume` here to avoid conflict with Rust keyword
     pub(super) fn resume(&mut self, _args: &ContinueArguments) -> HandlerResult {
         self.target.resume()?;
         Ok(HandlerAction {
@@ -353,6 +367,7 @@ impl<T: DebugTarget> Debugger<T> {
         })
     }
 
+    /// Handle `pause` request
     pub(super) fn pause(&mut self, _args: &PauseArguments) -> HandlerResult {
         self.target.pause()?;
         Ok(HandlerAction {
@@ -361,6 +376,7 @@ impl<T: DebugTarget> Debugger<T> {
         })
     }
 
+    /// Handle `next` request, also known as step over
     pub(super) fn next(&mut self, args: &NextArguments) -> HandlerResult {
         // Next means step over in DAP
         let cpu_id = self.cpu_registry.thread_to_cpu_id(args.thread_id)?;
@@ -405,6 +421,7 @@ impl<T: DebugTarget> Debugger<T> {
         ))
     }
 
+    /// Handle `stepIn` request
     pub(super) fn step_in(&mut self, args: &StepInArguments) -> HandlerResult {
         self.target
             .step_by(self.cpu_registry.thread_to_cpu_id(args.thread_id)?, 1)?;
@@ -415,6 +432,7 @@ impl<T: DebugTarget> Debugger<T> {
         })
     }
 
+    /// Handle `stepOut` request
     pub(super) fn step_out(&mut self, args: &StepOutArguments) -> HandlerResult {
         self.target
             .step_by(self.cpu_registry.thread_to_cpu_id(args.thread_id)?, 1)?; // TODO: actual solution
@@ -425,6 +443,7 @@ impl<T: DebugTarget> Debugger<T> {
         })
     }
 
+    /// Handle `readMemory` request
     pub(super) fn read_memory(&mut self, args: &ReadMemoryArguments) -> HandlerResult {
         let length =
             usize::try_from(args.count).map_err(|_| RequestFailed("Invalid byte count".into()))?;
@@ -453,6 +472,7 @@ impl<T: DebugTarget> Debugger<T> {
         })
     }
 
+    /// Handle `source` request
     pub(super) fn source(&mut self, _args: &SourceArguments) -> HandlerResult {
         Ok(HandlerAction {
             body: ResponseBody::Source(dap::responses::SourceResponse {

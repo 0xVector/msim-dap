@@ -1,3 +1,4 @@
+//! MSIM event handling and conversion to DAP events.
 use super::{Debugger, Result};
 use crate::msim::StoppedAtReason;
 use crate::target::DebugTarget;
@@ -15,6 +16,7 @@ type EventResult = Result<Option<dap::events::Event>>;
     clippy::needless_pass_by_ref_mut
 )]
 impl<T: DebugTarget> Debugger<T> {
+    /// Handle a MSIM `Terminated`"
     pub(super) fn handle_event_terminated(&mut self) -> EventResult {
         // TODO: we could allow returning multiple events (like in request handlers)
         self.dap_session
@@ -25,6 +27,7 @@ impl<T: DebugTarget> Debugger<T> {
         )))
     }
 
+    /// Handle a MSIM "`StoppedAt`"
     pub(super) fn handle_event_stopped_at(
         &mut self,
         cpu: CpuId,

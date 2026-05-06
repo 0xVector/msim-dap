@@ -148,6 +148,7 @@ impl<T: DebugTarget> Debugger<T> {
             Command::Variables(args) => self.variables(args),
             Command::SetVariable(args) => self.set_variable(args),
             Command::ReadMemory(args) => self.read_memory(args),
+            Command::Source(args) => self.source(args),
 
             _ => Err(DebuggerError::RequestFailed(
                 format!("Unhandled command: {:?}", req.command).into(),

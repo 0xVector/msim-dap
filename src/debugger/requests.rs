@@ -7,8 +7,8 @@ use dap::prelude::ResponseBody;
 use dap::requests::{
     AttachRequestArguments, ContinueArguments, DisconnectArguments, InitializeArguments,
     LaunchRequestArguments, NextArguments, PauseArguments, ReadMemoryArguments, ScopesArguments,
-    SetBreakpointsArguments, SetExceptionBreakpointsArguments, StackTraceArguments,
-    StepInArguments, StepOutArguments,
+    SetBreakpointsArguments, SetExceptionBreakpointsArguments, SourceArguments,
+    StackTraceArguments, StepInArguments, StepOutArguments,
 };
 use dap::responses::{
     SetBreakpointsResponse, SetExceptionBreakpointsResponse, StackTraceResponse, ThreadsResponse,
@@ -204,6 +204,20 @@ impl<T: DebugTarget> Debugger<T> {
             line
         );
 
+        // Defaults for missing sources
+        let presentation_hint = if path.is_none() {
+            Some(dap::types::PresentationHint::DeEmphasize)
+        } else {
+            None
+        };
+        let name = if path.is_none() {
+            Some(format!(
+                "Address {address:#x}, unknown (missing debug info)"
+            ))
+        } else {
+            None
+        };
+
         Ok(HandlerAction {
             body: ResponseBody::StackTrace(StackTraceResponse {
                 stack_frames: vec![StackFrame {
@@ -211,6 +225,8 @@ impl<T: DebugTarget> Debugger<T> {
                     name: "<unknown>".into(),
                     source: Some(Source {
                         path,
+                        name,
+                        presentation_hint,
                         ..Default::default()
                     }),
                     line,
@@ -432,6 +448,18 @@ impl<T: DebugTarget> Debugger<T> {
                 address: format!("{address:#x}"),
                 unreadable_bytes: None,
                 data: Some(STANDARD.encode(data)),
+            }),
+            post_action: None,
+        })
+    }
+
+    pub(super) fn source(&mut self, _args: &SourceArguments) -> HandlerResult {
+        Ok(HandlerAction {
+            body: ResponseBody::Source(dap::responses::SourceResponse {
+                content: "<unknown file>\
+                (No debug info available, are we in the userspace app?)"
+                    .to_string(),
+                mime_type: None,
             }),
             post_action: None,
         })

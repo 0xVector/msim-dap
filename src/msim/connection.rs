@@ -1,13 +1,24 @@
+//! Connection management for MSIM.
+//! This module defines the `Connection` trait for sending requests and receiving responses,
+//! as well as a TCP-based implementation of this trait.
+//! The TCP implementation uses a background thread to read from the TCP stream in a blocking
+//! manner, dispatching responses to an internal channel for the `send()` method and events to the main event channel.
+
 use super::frame::{FrameError, Inbound, Request, ResponseStatus};
 use super::tcp::connect;
 use super::{Event, MsimError, Result};
 use crate::{DebugEvent, DebugEventSender};
 use std::net::TcpStream;
 
+/// Trait representing a connection to MSIM,
+/// capable of sending requests and receiving responses.
 pub trait Connection {
+    /// Send a request to MSIM and wait for the corresponding response.
+    /// This method blocks until a response is received.
     fn send(&mut self, command: Request) -> Result<RawResponse>;
 }
 
+/// Raw deserialized response from MSIM with uninterpreted arguments.
 #[derive(Debug, Clone, Copy)]
 pub struct RawResponse {
     pub status: ResponseStatus,
@@ -19,6 +30,11 @@ pub struct RawResponse {
 type ResponseTx = std::sync::mpsc::Sender<RawResponse>;
 type ResponseRx = std::sync::mpsc::Receiver<RawResponse>;
 
+/// TCP-based implementation of the Connection trait.
+/// Uses a background thread to continuously read from the TCP stream
+/// and dispatch messages to the appropriate channels.
+/// Responses are sent to an internal channel for the [`TcpConnection::send()`] method,
+/// while events are sent to the main event channel for the rest of the system.
 pub struct TcpConnection {
     stream: TcpStream,
     resp_rx: ResponseRx, // Internal channel for receiving responses from the background thread.
@@ -29,6 +45,7 @@ impl TcpConnection {
         Self { stream, resp_rx }
     }
 
+    /// Connect to MSIM on the specified port and set up the background thread for message handling.
     pub fn connect(port: u16, event_tx: DebugEventSender) -> Result<Self> {
         let stream = connect(port)?;
         let (resp_tx, resp_rx) = std::sync::mpsc::channel();

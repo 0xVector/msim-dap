@@ -1,12 +1,17 @@
+//! MSIM protocol frame definitions and parsing logic.
+//! Contains serialization and deserialization of requests, responses and events
+//! according to the MSIM protocol specification.
 use crate::Address;
 use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
 use std::io::{Read, Write};
 
+/// Frame-specific result
 pub type Result<T> = std::result::Result<T, FrameError>;
 
 /// Low-level frame error type
 #[derive(thiserror::Error, Debug)]
 pub enum FrameError {
+    /// IO error (from [`std::io::Error`])
     #[error("IO error: {0}")]
     IO(#[from] std::io::Error),
 
@@ -149,7 +154,7 @@ pub enum Request {
     // TODO: GetTlbEntry(index)
 }
 
-/// Kind of data breakpoint, used in the [`DataBreakpoint`] struct.
+/// Kind of data breakpoint, used in [`Request::SetPhysDataBreakpoint::kind`].
 #[repr(u8)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[allow(unused)] // TODO: implement & use

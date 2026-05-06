@@ -1,3 +1,4 @@
+//! TCP utilities for MSIM
 use super::Result;
 use std::net::TcpStream;
 use std::time::Duration;

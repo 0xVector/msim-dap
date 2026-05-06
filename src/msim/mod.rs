@@ -1,3 +1,7 @@
+//! Module for MSIM protocol and connection handling.
+//! Composed of two main parts:
+//! - [`frame`]: defines the MSIM protocol messages and parsing logic.
+//! - [`connection`] and [`tcp`]: defines the connection handling and request/response logic.
 mod connection;
 mod frame;
 mod tcp;
@@ -17,6 +21,7 @@ pub use frame::ResponseStatus;
 
 pub type Result<T> = std::result::Result<T, MsimError>;
 
+/// Errors that can occur while handling MSIM connections and messages.
 #[derive(thiserror::Error, Debug)]
 pub enum MsimError {
     #[error("IO error: {0}")]

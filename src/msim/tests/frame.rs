@@ -1,3 +1,4 @@
+#![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 use super::super::frame::*;
 use std::io::Cursor;
 
@@ -199,7 +200,7 @@ fn response_deserialize_error() -> Result<()> {
 fn event_deserialize_stopped_at() -> Result<()> {
     let gold = Inbound::Event {
         kind: EventKind::StoppedAt,
-        arg0: 1, // CPU ID
+        arg0: 1,           // CPU ID
         arg1: 0x1234_5678, // address
         arg2: 2,
     };

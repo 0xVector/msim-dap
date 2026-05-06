@@ -3,6 +3,8 @@ use crate::{Address, CpuId, LineNo};
 use std::path::Path;
 
 mod msim_target;
+#[cfg(test)]
+mod tests;
 
 pub use msim_target::MsimTarget;
 

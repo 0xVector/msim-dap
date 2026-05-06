@@ -10,6 +10,11 @@ use frame::CpuId;
 pub use connection::{Connection, TcpConnection};
 pub use frame::{ArgType, CpuArch, CsrAddress, EventKind, RegisterId, Request, StoppedAtReason};
 
+#[cfg(test)]
+pub use connection::RawResponse;
+#[cfg(test)]
+pub use frame::ResponseStatus;
+
 pub type Result<T> = std::result::Result<T, MsimError>;
 
 #[derive(thiserror::Error, Debug)]
